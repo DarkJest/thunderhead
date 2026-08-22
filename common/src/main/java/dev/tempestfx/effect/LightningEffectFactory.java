@@ -11,6 +11,7 @@ import dev.tempestfx.lightning.LightningGeometryStrategy;
 import dev.tempestfx.lightning.LightningLod;
 import dev.tempestfx.math.StrikeSeed;
 import dev.tempestfx.math.Vec3d;
+import dev.tempestfx.strike.StrikeAttachment;
 
 /** Turns a strike event plus user settings into ready-to-render bolt geometry. */
 public final class LightningEffectFactory {
@@ -30,8 +31,19 @@ public final class LightningEffectFactory {
     }
 
     public ActiveLightningEffect create(LightningStrikeFxEvent event, LightningLod lod, TempestConfig config) {
+        return create(event, lod, config, null);
+    }
+
+    /**
+     * @param attachment where an upward streamer met the leader, or {@code null} to end the channel
+     *                   at the event's own position the way every earlier release did
+     */
+    public ActiveLightningEffect create(LightningStrikeFxEvent event, LightningLod lod, TempestConfig config,
+                                        StrikeAttachment attachment) {
         long seed = event.seed();
         DischargeProfile profile = DischargeProfiles.of(event.dischargeType());
+        // A player who does not want the channel to build has it revealed the way it always was.
+        if (!config.lightning.steppedLeader) profile = profile.withEnvelope(profile.envelope().withoutSteps());
         LightningLook look = LightningLook.resolve(config, event.style());
         float scale = look.scale();
         // An explicit origin is the caller stating the bolt's angle and length outright; without one
@@ -40,7 +52,10 @@ public final class LightningEffectFactory {
         // one that would have been derived, or a short slanted bolt wanders like a tall one.
         Vec3d start = event.origin() != null ? event.origin()
             : derivedOrigin(event, seed, lod, scale, profile.type());
-        double height = Math.max(1, start.distanceTo(event.position()));
+        // The channel ends where something reached up and met it, which is a rod's tip rather than
+        // the ground beside it whenever a rod is involved.
+        Vec3d end = attachment != null ? attachment.point() : event.position();
+        double height = Math.max(1, start.distanceTo(end));
 
         LightningGenerationConfig base = LightningGenerationConfig.high();
         double probability = Math.min(0.75, base.branchProbability() * look.branchCount() / 18.0);
@@ -56,12 +71,12 @@ public final class LightningEffectFactory {
 
         LightningBolt bolt = LightningBolt.builder()
             .start(start)
-            .end(event.position())
+            .end(end)
             .seed(seed)
             .intensity(event.intensity())
             .config(selected)
             .build();
-        return new ActiveLightningEffect(event, geometryStrategy.generate(bolt), lod, profile);
+        return new ActiveLightningEffect(event, geometryStrategy.generate(bolt), lod, profile, attachment);
     }
 
     /** Where a bolt leaves the cloud when the caller did not say: up, and leaning by its seed. */

@@ -93,7 +93,8 @@ public final class LightningRenderer {
         if (alphaScale <= 0) return;
         for (LightningSegment segment : effect.segments()) {
             if (!effect.segmentVisible(segment, partialTick)) continue;
-            float strength = brightness * profile.liftIntensity((float) segment.intensity());
+            float strength = brightness * profile.liftIntensity((float) segment.intensity())
+                * effect.returnStrokeBoost(segment, partialTick);
             float alpha = Math.min(1f, strength * alphaScale);
             if (alpha <= 0.002f) continue;
             double startWidth = Math.max(segment.startWidth() * layerWidth, minWidth);

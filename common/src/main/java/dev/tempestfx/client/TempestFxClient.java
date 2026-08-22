@@ -53,6 +53,9 @@ import dev.tempestfx.storm.AmbientDischarge;
 import dev.tempestfx.storm.LightningEventPlanner;
 import dev.tempestfx.storm.StormElectricState;
 import dev.tempestfx.storm.StormSample;
+import dev.tempestfx.strike.AttachmentPlanner;
+import dev.tempestfx.strike.StrikeAttachment;
+import dev.tempestfx.world.StreamerScanner;
 import dev.tempestfx.sky.TransientLuminousEvent;
 import dev.tempestfx.particle.AshImprintEmitter;
 import dev.tempestfx.particle.FxParticleMaterial;
@@ -104,6 +107,13 @@ public final class TempestFxClient {
     private static final double DEFAULT_CLOUD_HEIGHT = 120;
     /** How far above the cloud base the anvil top is taken to be, where a jet leaves the storm. */
     private static final double CLOUD_TOP_RISE = 22;
+    /**
+     * Beyond this the streamer scan is skipped entirely.
+     *
+     * <p>A streamer is a few blocks long. Past this distance it is a sub-pixel smudge, and the scan
+     * would be spending block lookups on something nobody can see.
+     */
+    private static final double STREAMER_SCAN_DISTANCE = 72;
 
     private final ClientPlatform platform;
     private final ConfigManager configManager;
@@ -134,6 +144,7 @@ public final class TempestFxClient {
     private final TransientLuminousSystem luminousEvents = new TransientLuminousSystem();
 
     private final StrikeIngest ingest = new StrikeIngest();
+    private final StreamerScanner streamerScanner = new StreamerScanner();
     private final WorldFxRenderer worldRenderer = new WorldFxRenderer();
     /** The mod's own programs; the whole native path depends on them and nothing else does. */
     private final FxPrograms programs = new FxPrograms();
@@ -191,7 +202,8 @@ public final class TempestFxClient {
      * feature can be disabled or replaced without touching the rest of the storm.
      */
     private void registerSubsystems() {
-        events.subscribeStrike(event -> effects.onStrike(event, platform.cameraPosition(), config));
+        events.subscribeStrike(event -> effects.onStrike(event, platform.cameraPosition(), config,
+            resolveAttachment(event)));
         events.subscribeStrike(this::emitImpactParticles);
         events.subscribeStrike(event -> screenFlash.onStrike(event, platform.cameraPosition(), config));
         events.subscribeStrike(event -> cameraImpulse.onStrike(event, platform.cameraPosition(), config));
@@ -477,6 +489,26 @@ public final class TempestFxClient {
                 StrikeOptions.builder().type(discharge.type()).build());
             thunder.onStrike(cue, camera, config);
         }
+    }
+
+    /**
+     * Works out what reached up to meet this leader, if anything.
+     *
+     * <p>A bounded world scan, once per strike, on the game thread — never from a render callback.
+     * It is skipped outright for anything that cannot have an attachment: an aerial discharge has no
+     * ground to attach to, and a strike far enough away that a six-block streamer is under a pixel is
+     * not worth the columns.
+     */
+    private StrikeAttachment resolveAttachment(LightningStrikeFxEvent event) {
+        if (currentLevel == null || !config.impact.streamers) return null;
+        if (!event.dischargeType().reachesGround()) return null;
+        if (platform.cameraPosition().distanceTo(event.position()) > STREAMER_SCAN_DISTANCE) return null;
+
+        double surfaceY = event.environment().surfaceY(event.position().y());
+        var candidates = streamerScanner.scan(currentLevel, event.position(), surfaceY);
+        if (candidates.isEmpty()) return null;
+        Vec3d ground = new Vec3d(event.position().x(), surfaceY, event.position().z());
+        return AttachmentPlanner.plan(candidates, ground, event.seed());
     }
 
     private void emitImpactParticles(LightningStrikeFxEvent event) {

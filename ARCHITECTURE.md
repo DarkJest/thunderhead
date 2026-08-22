@@ -40,7 +40,7 @@ world      surface sampling                                   Minecraft world
 mixin      four client hooks and one shared accessor          Minecraft internals
 ```
 
-Everything above `entity` in that list is unit-testable without a game instance, which is why 226
+Everything above `entity` in that list is unit-testable without a game instance, which is why 244
 tests cover geometry, envelopes, flash sequences, seeds, noise, audio maths, particle budgets,
 discharge behaviour, imprint lifetime, ball lightning motion, near-miss damage, particle lighting,
 storm charge, ambient scheduling, sprite and jet morphology, the public API and config validation.
@@ -274,6 +274,50 @@ the red and blue channels — the program already folds those into its noise loo
 far too small to see as colour — so the effect costs one additive pass, no extra attachment, no
 read-back and no shader of its own. It works identically with and without a shader pack for the same
 reason everything else does: it is drawn into the mod's own framebuffer.
+
+## The strike lifecycle
+
+A close strike used to be a channel that appeared. It is now a sequence, and each stage is a pure
+function of time that the renderer samples rather than a state machine anything has to drive:
+
+```text
+leader descends in steps        propagation(t), stepped
+        ↓
+objects below throw streamers   Streamer.growth(leader)
+        ↓
+one connects: attachment        StrikeAttachment.point(), and the channel is built to end there
+        ↓
+return stroke climbs            returnStrokeBoost(along, t)
+        ↓
+the channel decays              brightness(t)
+```
+
+**Stepping is a deliberate dramatisation.** A real stepped leader completes in tens of milliseconds,
+which at any frame rate is one or two frames, so the descent is given a couple of ticks and eleven
+steps are spaced to be legible inside it. Each step advances over the first 45% of its slot and holds
+for the rest; the pause is the feature, and a leader that eased between steps would just be a slower
+smooth reveal. A positive flash steps more coarsely, six times, because its leader is less stepped.
+
+**The return stroke is what gives the strike a direction.** Once the leader attaches, the current
+actually flows the other way, and a bright front climbs the finished channel in about a third of the
+time the descent took. Before it arrives a segment is only an ionised trail; after it passes the
+whole channel is lit and simply decays. Stepping and the return stroke are coupled on purpose — an
+aerial discharge has no ground contact, so it gets neither.
+
+**Streamers decide where the bolt lands.** `StreamerScanner` reads the heightmap over a seven-block
+radius once per strike, on the game thread, classifying each column top as rod, metal or terrain;
+`AttachmentPlanner` weights them by height and conductivity, picks a winner — usually the strongest,
+occasionally the runner-up, because a leader is already committed to an approach by then — and builds
+every streamer's geometry. The channel is then generated to end at the point where the winner met it,
+which is what makes a bolt terminate on a rod's tip rather than beside it. Ties break on position, not
+on iteration order, because a level does not list blocks the same way on every client.
+
+The whole thing is skipped for anything it cannot apply to: an aerial discharge has no ground, and a
+strike beyond seventy blocks would be spending block lookups on a sub-pixel smudge.
+
+Nothing here adds a draw call. Streamers go into the additive electricity batch the channel already
+uses and the connection flash into the glow batch, so they reach the screen through the same
+framebuffer and the same composite as everything else — and behave identically with a shader pack.
 
 ## Procedural geometry
 

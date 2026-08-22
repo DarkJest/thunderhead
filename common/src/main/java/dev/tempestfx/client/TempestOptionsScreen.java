@@ -51,6 +51,8 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
             percent("cold_tint", 0, 200, config.lightning.coldTint, value -> config.lightning.coldTint = value),
             count("return_strokes", 0, 6, config.lightning.returnStrokes,
                 value -> config.lightning.returnStrokes = value),
+            toggle("stepped_leader", config.lightning.steppedLeader,
+                value -> config.lightning.steppedLeader = value),
             toggle("flicker", config.lightning.flicker, value -> config.lightning.flicker = value),
             toggle("distant_bolts", config.lighting.distantBolts, value -> config.lighting.distantBolts = value));
 
@@ -76,6 +78,7 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
             toggle("debris", config.impact.debris, value -> config.impact.debris = value),
             toggle("ash", config.impact.ash, value -> config.impact.ash = value),
             toggle("air_distortion", config.impact.airDistortion, value -> config.impact.airDistortion = value),
+            toggle("streamers", config.impact.streamers, value -> config.impact.streamers = value),
             toggle("entity_discharge", config.impact.entityDischarge,
                 value -> config.impact.entityDischarge = value),
             toggle("ash_imprint", config.impact.ashImprint, value -> config.impact.ashImprint = value));

@@ -58,7 +58,7 @@ public final class DischargeProfiles {
         // shape of the channel. A high-current channel being smooth is also simply what it is.
         profiles.put(DischargeType.POSITIVE_CLOUD_TO_GROUND, new DischargeProfile(
             DischargeType.POSITIVE_CLOUD_TO_GROUND,
-            new EnvelopeProfile(13f, 0.85f, 0.34f, 1, 2.2f, 0.55f, 0.72f),
+            new EnvelopeProfile(13f, 1.9f, 0.34f, 1, 2.2f, 0.55f, 0.72f, 6),
             -1, 1.55, 0.22, 0.7, 0.75, 1, 0.45, -0.30,
             1.75f, 1.0f, 0.62f, 2.4f, 2.2f));
 
@@ -66,7 +66,7 @@ public final class DischargeProfiles {
         // the leader takes visibly longer to cross the sky than a ground flash takes to land.
         profiles.put(DischargeType.CLOUD_TO_CLOUD, new DischargeProfile(
             DischargeType.CLOUD_TO_CLOUD,
-            new EnvelopeProfile(11f, 3.6f, 0.46f, 2, 5.0f, 0.4f, 0.8f),
+            new EnvelopeProfile(11f, 3.6f, 0.46f, 2, 5.0f, 0.4f, 0.8f, 0),
             0, 1.15, 0.75, 0.8, 1.0, 2, 0f, 0.02,
             1.15f, 0.9f, 0.15f, 2.2f, 1.1f));
 
@@ -75,7 +75,7 @@ public final class DischargeProfiles {
         // flash.
         profiles.put(DischargeType.INTRACLOUD, new DischargeProfile(
             DischargeType.INTRACLOUD,
-            new EnvelopeProfile(14f, 2.4f, 0.38f, 3, 8.0f, 0.5f, 1.0f),
+            new EnvelopeProfile(14f, 2.4f, 0.38f, 3, 8.0f, 0.5f, 1.0f, 0),
             0, 1.0, 0.9, 0.7, 1.0, 2, 0f, 0.0,
             0.85f, 0.16f, 0.22f, 3.4f, 0.75f));
 
@@ -84,7 +84,7 @@ public final class DischargeProfiles {
         // trade as the superbolt: wider ribbon, one generation fewer, less wander.
         profiles.put(DischargeType.MEGAFLASH, new DischargeProfile(
             DischargeType.MEGAFLASH,
-            new EnvelopeProfile(30f, 13f, 0.19f, 3, 18f, 0.55f, 1.0f),
+            new EnvelopeProfile(30f, 13f, 0.19f, 3, 18f, 0.55f, 1.0f, 0),
             -1, 1.7, 0.85, 0.9, 0.85, 3, 0f, 0.01,
             1.8f, 0.95f, 0.3f, 4.5f, 2.6f));
 

@@ -24,7 +24,7 @@ public final class LuminousProfiles {
         // dark carmine at the tips.
         profiles.put(TransientLuminousEvent.RED_SPRITE, new LuminousProfile(
             TransientLuminousEvent.RED_SPRITE,
-            new EnvelopeProfile(8f, 0.7f, 0.85f, 1, 1.6f, 0.3f, 0.5f),
+            new EnvelopeProfile(8f, 0.7f, 0.85f, 1, 1.6f, 0.3f, 0.5f, 0),
             190, 0.72,
             0xff8496, 0xff2b3c, 0xa2123a, 0x9aa6ff,
             1.0f));
@@ -34,7 +34,7 @@ public final class LuminousProfiles {
         // rather than to appear above it.
         profiles.put(TransientLuminousEvent.BLUE_JET, new LuminousProfile(
             TransientLuminousEvent.BLUE_JET,
-            new EnvelopeProfile(15f, 9f, 0.3f, 0, 0f, 0.3f, 0.5f),
+            new EnvelopeProfile(15f, 9f, 0.3f, 0, 0f, 0.3f, 0.5f, 0),
             125, 0.34,
             0x4a6cff, 0x7a5cff, 0xa06cff, 0x000000,
             0.7f));

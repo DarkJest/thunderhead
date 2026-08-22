@@ -38,6 +38,11 @@ public final class TempestConfig {
         public float coldTint = 1f;
         /** Maximum visual return strokes per flash; 0 makes every flash a single stroke. */
         public int returnStrokes = 3;
+        /**
+         * The channel forms in discrete steps instead of appearing whole, and a bright return-stroke
+         * front then climbs back up it. Turning this off restores the smooth reveal.
+         */
+        public boolean steppedLeader = true;
         /** Overall size of the flash: channel height, lean and the intracloud canopy above it. */
         public float scale = 1f;
         /** How far the near-horizontal cloud-base channels reach; 0 removes them entirely. */
@@ -110,6 +115,12 @@ public final class TempestConfig {
         public float entityDischargeRadius = 10f;
         /** Blocks per tick a target must be moving before it starts arcing. */
         public float entityDischargeMinSpeed = 0.02f;
+        /**
+         * Upward streamers: tall and conductive things reach up as the leader closes, and the one
+         * that connects decides where the bolt lands. This is what gives a lightning rod something
+         * visible to do.
+         */
+        public boolean streamers = true;
         /** Scorched ash imprint left where a player took a direct hit. */
         public boolean ashImprint = true;
         public float ashImprintSeconds = 18f;

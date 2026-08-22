@@ -7,6 +7,7 @@ import dev.tempestfx.lightning.LightningEnvelope;
 import dev.tempestfx.lightning.LightningGeometry;
 import dev.tempestfx.lightning.LightningLod;
 import dev.tempestfx.lightning.LightningSegment;
+import dev.tempestfx.strike.StrikeAttachment;
 import java.util.List;
 
 /**
@@ -24,18 +25,26 @@ public final class ActiveLightningEffect {
     private final LightningEnvelope envelope;
     private final LightningLod lod;
     private final DischargeProfile profile;
+    /** How this strike met the ground; {@code null} for a discharge that never does. */
+    private final StrikeAttachment attachment;
     private int age;
 
     public ActiveLightningEffect(LightningStrikeFxEvent event, LightningGeometry geometry, LightningLod lod) {
-        this(event, geometry, lod, DischargeProfiles.negativeCloudToGround());
+        this(event, geometry, lod, DischargeProfiles.negativeCloudToGround(), null);
     }
 
     public ActiveLightningEffect(LightningStrikeFxEvent event, LightningGeometry geometry, LightningLod lod,
                                  DischargeProfile profile) {
+        this(event, geometry, lod, profile, null);
+    }
+
+    public ActiveLightningEffect(LightningStrikeFxEvent event, LightningGeometry geometry, LightningLod lod,
+                                 DischargeProfile profile, StrikeAttachment attachment) {
         this.event = event;
         this.geometry = geometry;
         this.lod = lod;
         this.profile = profile;
+        this.attachment = attachment;
         this.envelope = new LightningEnvelope(event.seed(), profile.envelope());
     }
 
@@ -54,6 +63,17 @@ public final class ActiveLightningEffect {
 
     public float impactFlash(float partialTick) { return envelope.impactFlash(time(partialTick)); }
 
+    /**
+     * Extra output on one segment as the return stroke climbs past it.
+     *
+     * <p>Read per segment per frame, which is why it is a closed-form function of the segment's own
+     * position rather than anything stored: no state is written while drawing.
+     */
+    public float returnStrokeBoost(LightningSegment segment, float partialTick) {
+        return envelope.returnStrokeBoost((segment.alongStart() + segment.alongEnd()) * 0.5,
+            time(partialTick));
+    }
+
     public boolean segmentVisible(LightningSegment segment, float partialTick) {
         float time = time(partialTick);
         if (segment.alongStart() > envelope.propagation(time)) return false;
@@ -69,6 +89,9 @@ public final class ActiveLightningEffect {
     public LightningLod lod() { return lod; }
 
     public DischargeProfile profile() { return profile; }
+
+    /** The streamers that reached for this leader and the point one of them met it at. */
+    public StrikeAttachment attachment() { return attachment; }
 
     public int age() { return age; }
 }

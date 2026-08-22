@@ -35,6 +35,7 @@ public final class WorldFxRenderer {
     private final BallLightningRenderer sphereRenderer = new BallLightningRenderer();
     private final CloudIlluminationRenderer cloudRenderer = new CloudIlluminationRenderer();
     private final LuminousEventRenderer luminousRenderer = new LuminousEventRenderer();
+    private final StreamerRenderer streamerRenderer = new StreamerRenderer();
 
     /** Snapshot of everything the world pass needs; keeps the signature readable. */
     public record Scene(List<ActiveLightningEffect> lightning,
@@ -106,9 +107,10 @@ public final class WorldFxRenderer {
             });
         }
         if (!scene.lights().isEmpty() || !scene.shockwaves().isEmpty() || !scene.particles().isEmpty()
-            || !scene.spheres().isEmpty()) {
+            || !scene.spheres().isEmpty() || StreamerRenderer.any(scene.lightning())) {
             if (profile.drawsWideGlow()) pass(target, FxPass.GLOW, consumer -> {
                 lightRenderer.render(scene.lights(), pose, consumer, partialTick);
+                streamerRenderer.renderAttachmentFlash(scene.lightning(), pose, consumer, camera, partialTick);
                 for (ShockwaveEffect effect : scene.shockwaves()) {
                     shockwaveRenderer.renderFlash(effect, pose, consumer, camera, partialTick);
                 }
@@ -141,6 +143,7 @@ public final class WorldFxRenderer {
                 }
                 luminousRenderer.renderFilaments(scene.luminousEvents(), pose, consumer, camera, partialTick,
                     config.general.reducedFlashing, profile);
+                streamerRenderer.renderStreamers(scene.lightning(), pose, consumer, camera, partialTick, profile);
                 for (ShockwaveEffect effect : scene.shockwaves()) {
                     shockwaveRenderer.renderRing(effect, pose, consumer, camera, partialTick, config);
                 }

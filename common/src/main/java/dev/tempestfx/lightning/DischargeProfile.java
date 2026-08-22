@@ -63,6 +63,13 @@ public record DischargeProfile(
         if (energyScale <= 0) throw new IllegalArgumentException("energyScale must be positive");
     }
 
+    /** The same archetype on a different timeline; used to honour the stepped-leader setting. */
+    public DischargeProfile withEnvelope(EnvelopeProfile value) {
+        return new DischargeProfile(type, value, generationsDelta, widthScale, branchScale,
+            displacementScale, roughnessScale, maxBranchDepth, canopyScale, forkBiasY, energyScale,
+            channelOpacity, warmth, cloudGlow, thunderScale);
+    }
+
     /**
      * Applies this profile to the shared tuning.
      *

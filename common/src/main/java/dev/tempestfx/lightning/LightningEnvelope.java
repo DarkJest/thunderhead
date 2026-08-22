@@ -25,6 +25,12 @@ import dev.tempestfx.math.StrikeSeed;
 public final class LightningEnvelope {
     /** Duration of the default negative cloud-to-ground profile, in ticks. */
     public static final float DURATION_TICKS = EnvelopeProfile.DEFAULT.durationTicks();
+    /** How much brighter the channel is where the return-stroke front is passing. */
+    private static final double RETURN_STROKE_PEAK = 2.4;
+    /** Width of that front in {@code along} units; wide enough to read, tight enough to travel. */
+    private static final double FRONT_WIDTH = 0.16;
+    /** How far past the cloud the front is tracked, so it fades out instead of stopping dead. */
+    private static final double FRONT_TAIL = 1.35;
 
     private final long seed;
     private final EnvelopeProfile profile;
@@ -56,9 +62,49 @@ public final class LightningEnvelope {
     /** How long this channel exists, in ticks. */
     public float duration() { return profile.durationTicks(); }
 
-    /** Fraction of the channel the leader has reached, {@code 0..1}. */
+    /**
+     * Fraction of the channel the leader has reached, {@code 0..1}.
+     *
+     * <p>A stepped leader does not slide down the channel, it jumps: a step advances, the channel
+     * holds still for a moment, then the next one advances. Making that visible is a deliberate
+     * dramatisation — a real stepped leader completes in tens of milliseconds, which at any frame
+     * rate is one or two frames — so the leader is given a couple of ticks to work in and the steps
+     * are spaced to be legible inside it. The alternative is a channel that simply appears, which is
+     * what every earlier release did and what this exists to replace.
+     */
     public float propagation(float timeTicks) {
-        return (float) FxMath.clamp(timeTicks / profile.propagationTicks(), 0, 1);
+        double raw = FxMath.clamp(timeTicks / profile.propagationTicks(), 0, 1);
+        int steps = profile.leaderSteps();
+        if (steps <= 0 || raw >= 1) return (float) raw;
+
+        double scaled = raw * steps;
+        double index = Math.floor(scaled);
+        // Each step advances over the first part of its slot and then pauses for the rest of it.
+        double within = FxMath.clamp((scaled - index) / EnvelopeProfile.STEP_ADVANCE_FRACTION, 0, 1);
+        return (float) ((index + FxMath.smoothstep(0, 1, within)) / steps);
+    }
+
+    /**
+     * Extra output on a segment as the return stroke climbs past it, {@code >= 1}.
+     *
+     * <p>Once the leader touches down, the channel is a conducting path and the actual current
+     * flows the other way: a bright front races from the ground back up to the cloud in a fraction
+     * of the time the leader took to come down. Before that front arrives a segment is just an
+     * ionised trail, and after it has passed the whole channel is lit — so this is what makes a
+     * close strike read as a direction rather than as a shape switching on.
+     *
+     * @param along position on the channel, 0 at the cloud and 1 at the ground
+     */
+    public float returnStrokeBoost(double along, float timeTicks) {
+        if (!profile.stepped()) return 1;
+        float start = profile.propagationTicks();
+        float span = profile.returnStrokeTicks();
+        if (timeTicks < start || timeTicks > start + span * FRONT_TAIL) return 1;
+
+        // The front starts at the ground and climbs toward the cloud.
+        double front = 1.0 - (timeTicks - start) / span;
+        double offset = (along - front) / FRONT_WIDTH;
+        return (float) (1.0 + RETURN_STROKE_PEAK * Math.exp(-offset * offset));
     }
 
     /** Channel output at {@code timeTicks}, {@code 0..1}. */

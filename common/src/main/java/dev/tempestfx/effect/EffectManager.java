@@ -4,6 +4,7 @@ import dev.tempestfx.api.LightningStrikeFxEvent;
 import dev.tempestfx.config.TempestConfig;
 import dev.tempestfx.lightning.LightningLod;
 import dev.tempestfx.math.Vec3d;
+import dev.tempestfx.strike.StrikeAttachment;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -25,13 +26,18 @@ public final class EffectManager {
     public EffectManager(LightningEffectFactory factory) { this.factory = factory; }
 
     public void onStrike(LightningStrikeFxEvent event, Vec3d camera, TempestConfig config) {
+        onStrike(event, camera, config, null);
+    }
+
+    public void onStrike(LightningStrikeFxEvent event, Vec3d camera, TempestConfig config,
+                         StrikeAttachment attachment) {
         double distance = camera.distanceTo(event.position());
         if (distance > config.performance.renderDistance) return;
 
         LightningLod lod = config.performance.lod ? LightningLod.forDistance(distance) : LightningLod.FULL;
         int limit = config.performance.maxConcurrentEffects;
         while (lightning.size() >= limit) lightning.removeFirst();
-        lightning.add(factory.create(event, lod, config));
+        lightning.add(factory.create(event, lod, config, attachment));
 
         if (config.impact.shockwave && lod != LightningLod.ATMOSPHERIC) {
             while (shockwaves.size() >= limit) shockwaves.removeFirst();

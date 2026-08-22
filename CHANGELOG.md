@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased — 1.4.0 "The Strike"
+
+### The channel forms instead of appearing
+
+- **Stepped leader.** The channel builds downward in eleven discrete steps, advancing and pausing,
+  instead of being revealed by a linear ramp. A positive flash steps more coarsely
+- **Return stroke.** Once the leader attaches, a bright front climbs the finished channel from the
+  ground back to the cloud in a third of the time the descent took, so a close strike reads as having
+  a direction rather than as a shape switching on
+- Both are off with `lightning.steppedLeader`, which restores the previous smooth reveal
+
+### Upward streamers and attachment
+
+- **Lightning rods, exposed metal and high ground reach up** as the leader closes, and the one that
+  connects first decides where the bolt lands. The channel is generated to end at that junction, so a
+  bolt now terminates on a rod's tip rather than beside it
+- The losing streamers snap dark the instant another one connects, which is what the collapse of the
+  field looks like
+- A rod usually wins over taller terrain, but not always — a leader is already committed to an
+  approach by the time the streamers go up
+- Bounded: one heightmap-based scan per strike, skipped entirely past seventy blocks and for
+  discharges that never reach the ground
+- Off with `impact.streamers`
+
 ## 1.3.0 — "The Sky Is Alive"
 
 ### Lightning is no longer one algorithm with randomised parameters
