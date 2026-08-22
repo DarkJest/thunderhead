@@ -4,7 +4,9 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.tempestfx.config.TempestConfig;
 import dev.tempestfx.effect.ActiveLightningEffect;
+import dev.tempestfx.effect.ActiveLuminousEvent;
 import dev.tempestfx.effect.AshImprint;
+import dev.tempestfx.effect.CloudLightSource;
 import dev.tempestfx.effect.EntityDischarge;
 import dev.tempestfx.effect.ShockwaveEffect;
 import dev.tempestfx.effect.TransientLightSystem.TransientPointLight;
@@ -31,6 +33,8 @@ public final class WorldFxRenderer {
     private final EntityDischargeRenderer dischargeRenderer = new EntityDischargeRenderer();
     private final AshImprintRenderer imprintRenderer = new AshImprintRenderer();
     private final BallLightningRenderer sphereRenderer = new BallLightningRenderer();
+    private final CloudIlluminationRenderer cloudRenderer = new CloudIlluminationRenderer();
+    private final LuminousEventRenderer luminousRenderer = new LuminousEventRenderer();
 
     /** Snapshot of everything the world pass needs; keeps the signature readable. */
     public record Scene(List<ActiveLightningEffect> lightning,
@@ -40,11 +44,15 @@ public final class WorldFxRenderer {
                         List<EntityDischarge> discharges,
                         List<AshImprint> imprints,
                         List<ActiveLightningEffect> distantBolts,
-                        List<BallLightningDraw> spheres) {
+                        List<BallLightningDraw> spheres,
+                        List<ActiveLightningEffect> skyDischarges,
+                        List<CloudLightSource> cloudLights,
+                        List<ActiveLuminousEvent> luminousEvents) {
         public boolean isEmpty() {
             return lightning.isEmpty() && shockwaves.isEmpty() && particles.isEmpty()
                 && lights.isEmpty() && discharges.isEmpty() && imprints.isEmpty()
-                && distantBolts.isEmpty() && spheres.isEmpty();
+                && distantBolts.isEmpty() && spheres.isEmpty()
+                && skyDischarges.isEmpty() && cloudLights.isEmpty() && luminousEvents.isEmpty();
         }
     }
 
@@ -68,7 +76,14 @@ public final class WorldFxRenderer {
                 }
             });
         }
-        if (!scene.shockwaves().isEmpty() || !scene.distantBolts().isEmpty()) {
+        // Lit cloud goes under everything electrical: a channel inside a glowing region has to read
+        // as being inside it, and the region is the dimmer, wider thing.
+        if (!scene.cloudLights().isEmpty() && profile.drawsWideGlow()) {
+            pass(target, FxPass.CLOUD_LIGHT,
+                consumer -> cloudRenderer.render(scene.cloudLights(), pose, consumer, camera, partialTick));
+        }
+        if (!scene.shockwaves().isEmpty() || !scene.distantBolts().isEmpty()
+            || !scene.luminousEvents().isEmpty()) {
             if (profile.drawsWideGlow()) pass(target, FxPass.ATMOSPHERE, consumer -> {
                 for (ShockwaveEffect effect : scene.shockwaves()) {
                     shockwaveRenderer.renderHaze(effect, pose, consumer, camera, partialTick);
@@ -77,6 +92,10 @@ public final class WorldFxRenderer {
                 for (ActiveLightningEffect effect : scene.distantBolts()) {
                     lightningRenderer.renderCloudGlow(effect, pose, consumer, camera, partialTick);
                 }
+                // A sprite is mostly this. The filaments give it a silhouette; the diffuse light is
+                // what actually carries across four hundred blocks of sky.
+                luminousRenderer.renderGlow(scene.luminousEvents(), pose, consumer, camera, partialTick,
+                    config.general.reducedFlashing);
             });
         }
         if (!scene.shockwaves().isEmpty()) {
@@ -111,11 +130,17 @@ public final class WorldFxRenderer {
 
         // Everything electrical shares one additive batch: channels, rings, sparks, arcs, spray.
         if (!scene.lightning().isEmpty() || !scene.shockwaves().isEmpty() || !scene.discharges().isEmpty()
-            || !scene.particles().isEmpty() || !scene.distantBolts().isEmpty() || !scene.spheres().isEmpty()) {
+            || !scene.particles().isEmpty() || !scene.distantBolts().isEmpty() || !scene.spheres().isEmpty()
+            || !scene.skyDischarges().isEmpty() || !scene.luminousEvents().isEmpty()) {
             pass(target, FxPass.BOLT, consumer -> {
                 for (ActiveLightningEffect effect : scene.lightning()) {
                     lightningRenderer.render(effect, stack, consumer, camera, partialTick, config, emissive, profile);
                 }
+                for (ActiveLightningEffect effect : scene.skyDischarges()) {
+                    lightningRenderer.render(effect, stack, consumer, camera, partialTick, config, emissive, profile);
+                }
+                luminousRenderer.renderFilaments(scene.luminousEvents(), pose, consumer, camera, partialTick,
+                    config.general.reducedFlashing, profile);
                 for (ShockwaveEffect effect : scene.shockwaves()) {
                     shockwaveRenderer.renderRing(effect, pose, consumer, camera, partialTick, config);
                 }

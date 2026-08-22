@@ -8,6 +8,10 @@ down from the cloud, a branching cold-white channel that flashes two or three mo
 same path, a blinding exposure flash, a pressure ring tearing across the ground, sparks, embers,
 debris, smoke and ash — and only afterwards, at the speed of sound, the thunder.
 
+And the storm around it is no longer inert between strikes. It flickers inside its own clouds, sends
+discharges travelling sideways through them, and very occasionally puts something above itself that
+most people have never seen a photograph of.
+
 The visual half is client-side and works on any server. The gameplay half — being hurt by a strike
 that lands near you, and the ball lightning it can leave behind — needs the mod on the server too.
 
@@ -23,6 +27,21 @@ that lands near you, and the ball lightning it can leave behind — needs the mo
   bundled core shaders that give every ribbon a soft analytic cross-section
 - 🌌 **Sky-spanning flashes** — channels reach 130–190 blocks up with near-horizontal intracloud
   canopy branches crawling out from the cloud base, so a strike occupies real sky
+- 🌩️ **Five kinds of discharge, not one** — negative cloud-to-ground, positive cloud-to-ground,
+  cloud-to-cloud, intracloud and the megaflash. Each has its own geometry, timeline, colour, cloud
+  glow and thunder, chosen from the strike's own seed so every player sees the same one
+- 💜 **Positive superbolts** — rare, and a different event rather than a brighter one: half again as
+  wide, a fifth of the branching, a violet halo instead of a cyan one, and one dominant stroke that
+  holds instead of stuttering
+- ☁️ **A storm that is alive between strikes** — horizontal channels travelling through the cloud
+  deck, intracloud discharges that barely show a channel and instead pulse the cloud from within,
+  and kilometre-scale megaflashes that are visibly seen to propagate across the sky
+- 🔆 **Cloud illumination** — clouds light up from the inside around a discharge, as irregular
+  pulsing regions rather than a flat sky flash. No shader pack needed, and none is interfered with
+- 🔴 **Red sprites and blue jets** — the real phenomena above severe storms, built from their actual
+  morphology rather than from particles: a sprite's cluster of tendrilled elements far above the
+  cloud tops after a powerful positive discharge, and the slow violet cone of a jet climbing out of
+  one. Rare enough that seeing one is the reason you start recording
 - 🔊 **Rolling thunder as its own effect** — a five-to-ten second event assembled at runtime from
   a dozen component layers, each with its own bearing, distance, delay, pitch and envelope: CRACK,
   BOOM, a low-frequency wall, irregular overlapping rolls sweeping across the sky, distant grumble

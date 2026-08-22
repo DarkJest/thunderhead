@@ -15,11 +15,18 @@ import java.util.Set;
  * @param origin    where the channel starts, or {@code null} to hang it from the cloud base
  * @param thunder   sound, or {@code null} for the mod's own choice by distance
  * @param particles which debris families may be emitted, or {@code null} for all of them
+ * @param type      which archetype to draw, or {@code null} to let the mod decide from the seed
  */
 public record StrikeOptions(LightningStyle style, Vec3d origin, ThunderOptions thunder,
-                            Set<ParticleFamily> particles) {
+                            Set<ParticleFamily> particles, DischargeType type) {
     /** Nothing overridden. Every strike the mod raises itself carries this. */
-    public static final StrikeOptions DEFAULT = new StrikeOptions(null, null, null, null);
+    public static final StrikeOptions DEFAULT = new StrikeOptions(null, null, null, null, null);
+
+    /** Retained so callers written against the pre-1.3 shape still compile. */
+    public StrikeOptions(LightningStyle style, Vec3d origin, ThunderOptions thunder,
+                         Set<ParticleFamily> particles) {
+        this(style, origin, thunder, particles, null);
+    }
 
     public StrikeOptions {
         if (origin != null && !origin.finite()) origin = null;
@@ -41,17 +48,19 @@ public record StrikeOptions(LightningStyle style, Vec3d origin, ThunderOptions t
         private Vec3d origin;
         private ThunderOptions thunder;
         private Set<ParticleFamily> particles;
+        private DischargeType type;
 
         public Builder style(LightningStyle value) { style = value; return this; }
         public Builder origin(Vec3d value) { origin = value; return this; }
         public Builder thunder(ThunderOptions value) { thunder = value; return this; }
         public Builder particles(Set<ParticleFamily> value) { particles = value; return this; }
+        public Builder type(DischargeType value) { type = value; return this; }
 
         public Builder particles(ParticleFamily... value) {
             particles = value == null || value.length == 0 ? null : Set.of(value);
             return this;
         }
 
-        public StrikeOptions build() { return new StrikeOptions(style, origin, thunder, particles); }
+        public StrikeOptions build() { return new StrikeOptions(style, origin, thunder, particles, type); }
     }
 }

@@ -7,7 +7,12 @@ import dev.tempestfx.math.StrikeSeed;
 /**
  * Time behaviour of a single bolt: propagation, brightness decay, re-strikes and flicker.
  *
- * <p>Reference timeline at intensity 1 (milliseconds, matching the design target):
+ * <p>The shape of the curve comes from an {@link EnvelopeProfile}, the values on it from the seed,
+ * so two discharges of the same type differ in their details while a positive flash and an
+ * intracloud pulse train stay recognisably different events.
+ *
+ * <p>Reference timeline for {@link EnvelopeProfile#DEFAULT} at intensity 1 (milliseconds, matching
+ * the design target):
  * <pre>
  *   0    leader reaches the ground, peak output
  *   40   ~55% output
@@ -18,43 +23,58 @@ import dev.tempestfx.math.StrikeSeed;
  * </pre>
  */
 public final class LightningEnvelope {
-    public static final float DURATION_TICKS = 8f;
-    /** Ticks the leader needs to travel from cloud to ground. */
-    private static final float PROPAGATION_TICKS = 1.2f;
-    private static final int MAX_RESTRIKES = 3;
+    /** Duration of the default negative cloud-to-ground profile, in ticks. */
+    public static final float DURATION_TICKS = EnvelopeProfile.DEFAULT.durationTicks();
 
     private final long seed;
+    private final EnvelopeProfile profile;
     private final float[] restrikeAt;
     private final float[] restrikePower;
 
     public LightningEnvelope(long seed) {
+        this(seed, EnvelopeProfile.DEFAULT);
+    }
+
+    public LightningEnvelope(long seed, EnvelopeProfile profile) {
         this.seed = seed;
-        int count = 1 + (int) (StrikeSeed.unit(seed, 0x1f1a) * MAX_RESTRIKES);
+        this.profile = profile;
+        int count = profile.maxRestrikes() <= 0 ? 0
+            : 1 + (int) (StrikeSeed.unit(seed, 0x1f1a) * profile.maxRestrikes());
         this.restrikeAt = new float[count];
         this.restrikePower = new float[count];
+        float powerSpread = profile.restrikePowerMax() - profile.restrikePowerMin();
         for (int index = 0; index < count; index++) {
-            restrikeAt[index] = (float) (1.4 + StrikeSeed.unit(seed, 0x2b00 + index) * 4.2);
-            restrikePower[index] = (float) (0.45 + StrikeSeed.unit(seed, 0x3c00 + index) * 0.5);
+            restrikeAt[index] = (float) (EnvelopeProfile.RESTRIKE_MIN_DELAY_TICKS
+                + StrikeSeed.unit(seed, 0x2b00 + index) * profile.restrikeSpreadTicks());
+            restrikePower[index] = (float) (profile.restrikePowerMin()
+                + StrikeSeed.unit(seed, 0x3c00 + index) * powerSpread);
         }
     }
 
+    public EnvelopeProfile profile() { return profile; }
+
+    /** How long this channel exists, in ticks. */
+    public float duration() { return profile.durationTicks(); }
+
     /** Fraction of the channel the leader has reached, {@code 0..1}. */
     public float propagation(float timeTicks) {
-        return (float) FxMath.clamp(timeTicks / PROPAGATION_TICKS, 0, 1);
+        return (float) FxMath.clamp(timeTicks / profile.propagationTicks(), 0, 1);
     }
 
     /** Channel output at {@code timeTicks}, {@code 0..1}. */
     public float brightness(float timeTicks, boolean flicker, boolean reducedFlashing) {
-        if (timeTicks < 0 || timeTicks >= DURATION_TICKS) return 0;
-        if (reducedFlashing) return (float) Math.max(0, 1.0 - timeTicks / 6.0) * 0.72f;
+        float duration = profile.durationTicks();
+        if (timeTicks < 0 || timeTicks >= duration) return 0;
+        if (reducedFlashing) return (float) Math.max(0, 1.0 - timeTicks / (duration * 0.75)) * 0.72f;
 
-        float output = (float) Math.exp(-timeTicks * 0.62);
+        float output = (float) Math.exp(-timeTicks * profile.decay());
         for (int index = 0; index < restrikeAt.length; index++) {
             if (timeTicks < restrikeAt[index]) continue;
             float since = timeTicks - restrikeAt[index];
             output = Math.max(output, restrikePower[index] * (float) Math.exp(-since * 2.1));
         }
-        output *= (float) (1.0 - FxMath.smoothstep(DURATION_TICKS - 1.6, DURATION_TICKS, timeTicks));
+        float fade = profile.fadeTicks();
+        output *= (float) (1.0 - FxMath.smoothstep(duration - fade, duration, timeTicks));
         if (!flicker) return output;
         return output * (0.78f + 0.22f * (float) Noise.flicker(seed, timeTicks, 9.0));
     }
@@ -71,8 +91,8 @@ public final class LightningEnvelope {
      */
     public boolean branchVisible(long visibilityMask, float timeTicks) {
         int bucket = (int) Math.floor(Math.max(0, timeTicks) * 3.0) & 63;
-        return ((visibilityMask >>> bucket) & 1L) != 0L || timeTicks < PROPAGATION_TICKS;
+        return ((visibilityMask >>> bucket) & 1L) != 0L || timeTicks < profile.propagationTicks();
     }
 
-    public boolean finished(float timeTicks) { return timeTicks >= DURATION_TICKS; }
+    public boolean finished(float timeTicks) { return timeTicks >= profile.durationTicks(); }
 }

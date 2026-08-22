@@ -145,6 +145,35 @@ public final class TempestFxFabricClient implements ClientModInitializer {
                         client.setShowcaseCameraSpeed(DoubleArgumentType.getDouble(context, "speed"));
                         return 1;
                     })));
+        // One ambient discharge of a named archetype, at cloud height in front of the player. The
+        // planner raises these on its own and rarely, so this is how they are actually inspected.
+        var sky = ClientCommandManager.literal("sky")
+            .executes(context -> { client.debugSkyDischarge("cloud_to_cloud", 160); return 1; });
+        for (String type : new String[] { "cloud_to_cloud", "intracloud", "megaflash",
+            "positive_cloud_to_ground", "negative_cloud_to_ground" }) {
+            sky = sky.then(ClientCommandManager.literal(type)
+                .executes(context -> { client.debugSkyDischarge(type, 160); return 1; })
+                .then(ClientCommandManager.argument("distance", DoubleArgumentType.doubleArg(16, 1024))
+                    .executes(context -> {
+                        client.debugSkyDischarge(type, DoubleArgumentType.getDouble(context, "distance"));
+                        return 1;
+                    })));
+        }
+
+        // The two events above the storm. Rare enough by design that a command is the only way to
+        // look at one on purpose.
+        var aloft = ClientCommandManager.literal("aloft")
+            .executes(context -> { client.debugLuminousEvent("red_sprite", 220); return 1; });
+        for (String type : new String[] { "red_sprite", "blue_jet" }) {
+            aloft = aloft.then(ClientCommandManager.literal(type)
+                .executes(context -> { client.debugLuminousEvent(type, 220); return 1; })
+                .then(ClientCommandManager.argument("distance", DoubleArgumentType.doubleArg(32, 1024))
+                    .executes(context -> {
+                        client.debugLuminousEvent(type, DoubleArgumentType.getDouble(context, "distance"));
+                        return 1;
+                    })));
+        }
+
         var settings = ClientCommandManager.literal("settings")
             .executes(context -> {
                 // Deferred: the command runs while the chat screen is still up, and setScreen from
@@ -165,6 +194,8 @@ public final class TempestFxFabricClient implements ClientModInitializer {
             .then(reload)
             .then(strike)
             .then(strikeCamera)
+            .then(sky)
+            .then(aloft)
             .then(camera)
             .then(ClientCommandManager.literal("directhit")
                 .executes(context -> { client.debugDirectHit(); return 1; }))

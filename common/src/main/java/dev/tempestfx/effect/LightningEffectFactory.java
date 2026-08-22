@@ -1,7 +1,10 @@
 package dev.tempestfx.effect;
 
+import dev.tempestfx.api.DischargeType;
 import dev.tempestfx.api.LightningStrikeFxEvent;
 import dev.tempestfx.config.TempestConfig;
+import dev.tempestfx.lightning.DischargeProfile;
+import dev.tempestfx.lightning.DischargeProfiles;
 import dev.tempestfx.lightning.LightningBolt;
 import dev.tempestfx.lightning.LightningGenerationConfig;
 import dev.tempestfx.lightning.LightningGeometryStrategy;
@@ -17,6 +20,8 @@ public final class LightningEffectFactory {
     private static final double LEAN_RATIO = 0.26;
     /** Channel height the tuned displacement amplitude was authored against. */
     private static final double REFERENCE_HEIGHT = 110;
+    /** How much taller a positive channel hangs; part of what makes it read as a different event. */
+    private static final double POSITIVE_HEIGHT_SCALE = 1.35;
 
     private final LightningGeometryStrategy geometryStrategy;
 
@@ -26,24 +31,27 @@ public final class LightningEffectFactory {
 
     public ActiveLightningEffect create(LightningStrikeFxEvent event, LightningLod lod, TempestConfig config) {
         long seed = event.seed();
+        DischargeProfile profile = DischargeProfiles.of(event.dischargeType());
         LightningLook look = LightningLook.resolve(config, event.style());
         float scale = look.scale();
         // An explicit origin is the caller stating the bolt's angle and length outright; without one
         // the channel hangs from the cloud base with a seeded lean, which is every strike the mod
         // raises itself. Displacement is then scaled by the channel that actually exists, not by the
         // one that would have been derived, or a short slanted bolt wanders like a tall one.
-        Vec3d start = event.origin() != null ? event.origin() : derivedOrigin(event, seed, lod, scale);
+        Vec3d start = event.origin() != null ? event.origin()
+            : derivedOrigin(event, seed, lod, scale, profile.type());
         double height = Math.max(1, start.distanceTo(event.position()));
 
         LightningGenerationConfig base = LightningGenerationConfig.high();
         double probability = Math.min(0.75, base.branchProbability() * look.branchCount() / 18.0);
-        LightningGenerationConfig selected = base
-            .withGenerations(config.lightning.geometryQuality)
-            .withBranchProbability(probability)
-            // Amplitude is authored for a reference height; a taller channel needs a wider wander
-            // or it reads as a straight wire stretched across the sky.
-            .withDisplacement(base.displacement() * height / REFERENCE_HEIGHT)
-            .withSkySpread(config.lightning.skySpread)
+        LightningGenerationConfig selected = profile
+            .geometry(base
+                .withGenerations(config.lightning.geometryQuality)
+                .withBranchProbability(probability)
+                // Amplitude is authored for a reference height; a taller channel needs a wider wander
+                // or it reads as a straight wire stretched across the sky.
+                .withDisplacement(base.displacement() * height / REFERENCE_HEIGHT),
+                config.lightning.skySpread)
             .forLod(lod);
 
         LightningBolt bolt = LightningBolt.builder()
@@ -53,14 +61,18 @@ public final class LightningEffectFactory {
             .intensity(event.intensity())
             .config(selected)
             .build();
-        return new ActiveLightningEffect(event, geometryStrategy.generate(bolt), lod);
+        return new ActiveLightningEffect(event, geometryStrategy.generate(bolt), lod, profile);
     }
 
     /** Where a bolt leaves the cloud when the caller did not say: up, and leaning by its seed. */
-    private static Vec3d derivedOrigin(LightningStrikeFxEvent event, long seed, LightningLod lod, float scale) {
+    private static Vec3d derivedOrigin(LightningStrikeFxEvent event, long seed, LightningLod lod, float scale,
+                                       DischargeType type) {
+        // A positive flash comes out of the anvil rather than the cloud base: a longer channel, and a
+        // steeper one, which is part of why it can land well away from the storm it belongs to.
+        double typeScale = type == DischargeType.POSITIVE_CLOUD_TO_GROUND ? POSITIVE_HEIGHT_SCALE : 1.0;
         double height = (lod == LightningLod.ATMOSPHERIC
             ? CLOUD_HEIGHT * 0.75
-            : CLOUD_HEIGHT + StrikeSeed.unit(seed, 0x01) * CLOUD_HEIGHT_VARIANCE) * scale;
+            : CLOUD_HEIGHT + StrikeSeed.unit(seed, 0x01) * CLOUD_HEIGHT_VARIANCE) * scale * typeScale;
         double lean = height * LEAN_RATIO;
         return event.position().add(
             StrikeSeed.signed(seed, 0x02) * lean, height, StrikeSeed.signed(seed, 0x03) * lean);

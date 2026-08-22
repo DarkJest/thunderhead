@@ -6,6 +6,7 @@ import dev.tempestfx.api.LightningStyle;
 import dev.tempestfx.config.TempestConfig;
 import dev.tempestfx.effect.ActiveLightningEffect;
 import dev.tempestfx.effect.LightningLook;
+import dev.tempestfx.lightning.DischargeProfile;
 import dev.tempestfx.lightning.LightningSegment;
 import dev.tempestfx.math.FxMath;
 import dev.tempestfx.math.Vec3d;
@@ -27,6 +28,15 @@ public final class LightningRenderer {
     private static final double MIN_WIDTH_PER_BLOCK = 0.0016;
     /** Absolute half-width floor used only under a shader pack, in blocks. */
     private static final double NEAR_WIDTH_FLOOR = 0.03;
+    /**
+     * The violet-white end of the channel palette, reached at {@code warmth = 1}.
+     *
+     * <p>A positive flash is not a brighter blue one. Its channel is hotter and the halo around it
+     * reads violet rather than cyan, which is what lets a player tell the two apart in one frame.
+     */
+    private static final float[] WARM_OUTER = { 0.72f, 0.34f, 0.86f };
+    private static final float[] WARM_INNER = { 0.99f, 0.74f, 0.88f };
+    private static final float[] WARM_CORE = { 1f, 0.97f, 0.93f };
 
     public void render(ActiveLightningEffect effect, PoseStack stack, VertexConsumer consumer,
                        Vec3d camera, float partialTick, TempestConfig config, float emissiveBoost,
@@ -44,30 +54,36 @@ public final class LightningRenderer {
         // asked for. Brightness and flicker are not in here - those are accessibility, and they are
         // read from the configuration above whatever any style says.
         LightningLook look = LightningLook.resolve(config, effect.event().style());
-        double thickness = look.thickness() * profile.widthScale();
+        DischargeProfile discharge = effect.profile();
+        double thickness = look.thickness() * profile.widthScale() * discharge.widthScale();
         float glow = config.lightning.glowStrength * emissiveBoost;
         float tint = look.coldTint();
+        // How much of the channel is exposed at all. An intracloud event is nearly all cloud and
+        // almost no visible strand, which is the whole point of it.
+        float exposure = discharge.channelOpacity();
+        if (exposure <= 0.001f) return;
+        float warmth = discharge.warmth();
 
         // Cold outer halo, then a brighter inner sheath, then the near-white conducting core. A
         // style may name the two colours outright; otherwise they come off the cold-tint ramp, which
-        // is what an ordinary bolt uses.
+        // is what an ordinary bolt uses, warmed toward violet for the positive archetypes.
         LightningStyle style = effect.event().style();
         float[] outer = style != null && style.hasGlowColor()
             ? rgb(style.glowColor(), 1f)
-            : new float[] { mix(0.30f, tint), mix(0.48f, tint), 1f };
+            : warm(mix(0.30f, tint), mix(0.48f, tint), 1f, WARM_OUTER, warmth);
         float[] inner = style != null && style.hasGlowColor()
             ? rgb(style.glowColor(), 1.45f)
-            : new float[] { mix(0.58f, tint), mix(0.76f, tint), 1f };
+            : warm(mix(0.58f, tint), mix(0.76f, tint), 1f, WARM_INNER, warmth);
         float[] core = style != null && style.hasCoreColor()
             ? rgb(style.coreColor(), 1f)
-            : new float[] { 0.97f, 0.99f, 1f };
+            : warm(0.97f, 0.99f, 1f, WARM_CORE, warmth);
 
         renderLayer(effect, pose, consumer, camera, partialTick, brightness,
-            OUTER_WIDTH * thickness, minWidth, outer[0], outer[1], outer[2], 0.085f * glow, profile);
+            OUTER_WIDTH * thickness, minWidth, outer[0], outer[1], outer[2], 0.085f * glow * exposure, profile);
         renderLayer(effect, pose, consumer, camera, partialTick, brightness,
-            INNER_WIDTH * thickness, minWidth, inner[0], inner[1], inner[2], 0.24f * glow, profile);
+            INNER_WIDTH * thickness, minWidth, inner[0], inner[1], inner[2], 0.24f * glow * exposure, profile);
         renderLayer(effect, pose, consumer, camera, partialTick, brightness,
-            CORE_WIDTH * thickness, minWidth, core[0], core[1], core[2], 1f, profile);
+            CORE_WIDTH * thickness, minWidth, core[0], core[1], core[2], exposure, profile);
     }
 
     private void renderLayer(ActiveLightningEffect effect, PoseStack.Pose pose, VertexConsumer consumer,
@@ -114,6 +130,16 @@ public final class LightningRenderer {
             (float) FxMath.clamp(((packed >> 16) & 0xFF) / 255f * gain, 0f, 1f),
             (float) FxMath.clamp(((packed >> 8) & 0xFF) / 255f * gain, 0f, 1f),
             (float) FxMath.clamp((packed & 0xFF) / 255f * gain, 0f, 1f) };
+    }
+
+    /** Blends the cold channel colour toward the warm palette of a positive discharge. */
+    private static float[] warm(float red, float green, float blue, float[] target, float warmth) {
+        float amount = (float) FxMath.clamp(warmth, 0f, 1f);
+        if (amount <= 0) return new float[] { red, green, blue };
+        return new float[] {
+            red + (target[0] - red) * amount,
+            green + (target[1] - green) * amount,
+            blue + (target[2] - blue) * amount };
     }
 
     /** Blends a cold channel value toward white as the user reduces the cold tint. */

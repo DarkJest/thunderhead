@@ -211,7 +211,7 @@ public final class MidpointDisplacementStrategy implements LightningGeometryStra
             double angle = config.branchAngleRadians() * (0.65 + random.nextDouble() * 0.7);
             Vec3d branchDirection = mainDirection.scale(Math.cos(angle) * config.directionBias())
                 .add(radial.scale(Math.sin(angle)))
-                .add(0, -0.18, 0)
+                .add(0, config.forkBiasY(), 0)
                 .normalize();
             if (branchDirection.lengthSquared() < 0.5) continue;
 

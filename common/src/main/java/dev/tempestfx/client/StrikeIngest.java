@@ -1,9 +1,13 @@
 package dev.tempestfx.client;
 
+import dev.tempestfx.api.DischargeType;
 import dev.tempestfx.api.LightningEnvironment;
 import dev.tempestfx.api.LightningStrikeFxEvent;
+import dev.tempestfx.api.StrikeOptions;
 import dev.tempestfx.api.StrikeTarget;
+import dev.tempestfx.config.TempestConfig;
 import dev.tempestfx.effect.DischargeTarget;
+import dev.tempestfx.lightning.DischargeSelector;
 import dev.tempestfx.math.StrikeSeed;
 import dev.tempestfx.math.Vec3d;
 import dev.tempestfx.world.LightningEnvironmentResolver;
@@ -39,13 +43,17 @@ public final class StrikeIngest {
     private final LightningObservationTracker observations = new LightningObservationTracker();
 
     /** @return the event to publish, or {@code null} if this bolt was already handled. */
-    public LightningStrikeFxEvent ingest(ClientLevel level, LightningBolt bolt) {
+    public LightningStrikeFxEvent ingest(ClientLevel level, LightningBolt bolt, TempestConfig config) {
         if (!observations.firstObservation(bolt.getId())) return null;
         Vec3 position = bolt.position();
         Vec3d point = new Vec3d(position.x, position.y, position.z);
         long seed = StrikeSeed.of(position.x, position.y, position.z, bolt.getId());
         LightningEnvironment environment = environments.resolve(level, position);
-        return new LightningStrikeFxEvent(point, seed, 1f, environment, resolveTarget(level, point));
+        // Which archetype this is, decided once and carried: every subsystem downstream reads it off
+        // the event instead of rolling for it again, and the roll is seeded so every client agrees.
+        DischargeType type = DischargeSelector.forGroundStrike(seed, config.lightning.superboltChance);
+        StrikeOptions options = StrikeOptions.builder().type(type).build();
+        return new LightningStrikeFxEvent(point, seed, 1f, environment, resolveTarget(level, point), 0, options);
     }
 
     public void tick() { observations.tick(); }

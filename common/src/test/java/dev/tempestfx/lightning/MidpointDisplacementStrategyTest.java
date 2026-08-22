@@ -120,7 +120,7 @@ class MidpointDisplacementStrategyTest {
     @Test
     void segmentBudgetIsNeverExceeded() {
         LightningGenerationConfig capped = new LightningGenerationConfig(7, 5.0, 0.56, 0.9, 0.64,
-            Math.toRadians(38), 0.32, 0.58, 0.36, 2, 0.9, 6, 0.8, 64);
+            Math.toRadians(38), 0.32, 0.58, 0.36, 2, 0.9, 6, 0.8, -0.18, 64);
         LightningGeometry geometry = strategy.generate(LightningBolt.builder()
             .start(new Vec3d(0, 120, 0)).end(new Vec3d(0, 64, 0)).seed(7).config(capped).build());
         assertTrue(geometry.segmentCount() <= 64, "generated " + geometry.segmentCount() + " segments");

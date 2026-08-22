@@ -22,6 +22,9 @@ Inside `common` the layering is:
 ```text
 math       Vec3d, Bounds3d, FxMath, Noise, StrikeSeed        pure, no Minecraft types
 lightning  geometry, generation config, envelope, sequence    pure, no Minecraft types
+           discharge archetypes and their parameter profiles
+storm      electrical state and the ambient event planner     pure, no Minecraft types
+sky        sprite and jet morphology above the storm          pure, no Minecraft types
 particle   particle model, pool-backed system, emitters       pure, no Minecraft types
 effect     live simulation state for every visual subsystem   pure, no Minecraft types
 audio      thunder scheduling and engine-accurate loudness    only ResourceLocation
@@ -37,10 +40,10 @@ world      surface sampling                                   Minecraft world
 mixin      four client hooks and one shared accessor          Minecraft internals
 ```
 
-Everything above `entity` in that list is unit-testable without a game instance, which is why 138
+Everything above `entity` in that list is unit-testable without a game instance, which is why 226
 tests cover geometry, envelopes, flash sequences, seeds, noise, audio maths, particle budgets,
-discharge behaviour, imprint lifetime, ball lightning motion, near-miss damage, particle lighting, the
-public API and config validation.
+discharge behaviour, imprint lifetime, ball lightning motion, near-miss damage, particle lighting,
+storm charge, ambient scheduling, sprite and jet morphology, the public API and config validation.
 
 ## Client and server responsibilities
 
@@ -144,6 +147,134 @@ with no server involvement, so the feature keeps working on a vanilla server.
 Strokes are released as raw parameters rather than finished events: each one lands a couple of metres
 away and therefore needs its own surface sample, which only the client can do.
 
+## Discharge archetypes
+
+A flash is one of five things, and which one it is decides everything about it:
+
+```text
+NEGATIVE_CLOUD_TO_GROUND   the ordinary strike; every scale below is 1 by definition
+POSITIVE_CLOUD_TO_GROUND   the superbolt: wide, violet, barely branched, one dominant stroke
+CLOUD_TO_CLOUD             horizontal, no ground contact, forks spreading flat
+INTRACLOUD                 buried: almost no exposed channel, the cloud does the work
+MEGAFLASH                  kilometre-scale, propagating for more than a second
+```
+
+`DischargeProfile` holds the numbers — channel width, fork probability, wander amplitude, fork
+lean, exposed opacity, colour warmth, cloud glow, thunder impulse and the timeline — and
+`DischargeProfiles` is the one table that maps an archetype to its profile. Adding an archetype is a
+row there; nothing downstream branches on the type. A positive flash is therefore not
+`normal × 1.5`: its channel is over twice as wide, carries roughly a fifth of the branching, holds
+for thirteen ticks instead of eight with a single re-strike instead of three, and its halo is violet
+rather than cyan. Those are five independent differences and any one of them is visible in a still
+frame.
+
+### Two constraints a profile may not violate
+
+Both were learned the expensive way, and both are now regression-tested in `ChannelReadabilityTest`,
+which measures them on real generated geometry rather than trusting the numbers.
+
+**A segment must stay several times longer than the ribbon along it is wide.** `RibbonRenderer`
+turns each segment into its own camera-facing quad; once the quads are as wide as they are long they
+overlap at sharp angles instead of joining, and an additive pass renders that as torn lumps. So
+widening a channel means removing a generation from it — which is what `generationsDelta` is for —
+and a wide channel wanders *less* than a thin one, not more. The first cut of the positive profile
+widened by 2.35 without touching the subdivision, dropped the ratio from 5.0 to 2.9, and looked
+broken. `AerialChannelStrategy` had the same fault more severely: giving every leg the full
+generation count chopped a 260-block channel into half-block segments, so it now subdivides by leg
+length instead.
+
+**A bare trunk shows its joints.** Two segments meeting at an angle do not share an edge — the outer
+corner opens by `halfWidth × tan(kink / 2)`. An ordinary flash hides that among its forks. A positive
+one has almost no forks, so the same seam is conspicuous, and the lever is `roughnessScale`: the late
+generations set the kink angle, the early ones set the shape, so lowering the decay straightens the
+channel at pixel scale without touching its silhouette. Measured at thirty blocks, the archetypes now
+sit at 0.4 to 1.8 pixels of seam against the ordinary flash's 1.3.
+
+The archetype is decided once, at ingest, by `DischargeSelector` from the same strike seed every
+client already derives geometry and thunder from, and rides on the event in `StrikeOptions`. No
+packet, no disagreement between players, and no subsystem rolling for it a second time.
+`LightningEnvelope` takes the profile's `EnvelopeProfile` rather than the constants it used to own,
+so duration, propagation, decay and re-strikes are properties of the archetype.
+
+## The storm as a system
+
+Vanilla only ever tells a client about lightning that lands. A real storm spends most of its life
+discharging inside and between its own clouds, and none of that has a server-side counterpart at
+all — so it is planned on the client:
+
+```text
+StormSample            what the level looks like this tick, with no Minecraft types attached
+   ↓
+StormElectricState     charge that builds over seconds and bleeds away over rather longer
+   ↓
+LightningEventPlanner  when something happens, which archetype, and where in the storm
+   ↓
+AmbientDischarge       an immutable description; no geometry, no sound, no light
+   ↓
+SkyDischargeSystem     the channel               CloudIlluminationSystem   the lit cloud
+                                                 ThunderSystem             the sound
+```
+
+Consistency between players is deliberately not enforced here. A ground strike must look the same to
+everyone because the server applies damage for it; an intracloud pulse four hundred blocks away is
+ambience, and a packet to synchronise it would buy nothing a player could ever notice. The storm's
+bearing is derived from the replicated world clock, so the fronts do at least face the same way.
+
+`SkyDischargeSystem` is separate from `EffectManager` on purpose: an aerial discharge has no impact,
+no target and no surface, and giving it its own bounded list keeps "is this one real" out of the
+strike path and lets the two be budgeted independently. `AerialChannelStrategy` composes the same
+displacement strategy the ground bolts use over a route of two to six legs, then remaps each
+segment's `along` onto the whole run, so the leader crosses the sky once instead of restarting at
+every joint — and the channel texture, fork weighting and width ladder stay in one place.
+
+## Above the storm
+
+Sprites and jets are not lightning and are not modelled as it. Lightning is a conducting channel in
+dense air; a sprite is a glow discharge in air thin enough that a whole region lights at once, which
+is why it has no trunk, no attachment and no thunder.
+
+```text
+LightningStrikeFxEvent (positive CG)   AmbientDischarge (megaflash)   AmbientDischarge (any)
+                    ↓                            ↓                             ↓
+              TransientLuminousSystem  — rolls, rarely, and places the result
+                    ↓
+              LuminousStructures  — procedural morphology, once, from a seed
+                    ↓
+              ActiveLuminousEvent  — structure + LightningEnvelope
+                    ↓
+              LuminousEventRenderer  — filaments into BOLT, halos into ATMOSPHERE
+```
+
+`LuminousStructures` deliberately does not use midpoint displacement. Subdivision discovers a
+wandering channel, which is right for a bolt and wrong here: a sprite is a *curtain* of roughly
+parallel columns with tendrils combed downward and outward, and a jet is a *cone* that splits as it
+climbs. Both are described directly by their morphology, and the result is an order of magnitude
+cheaper than a bolt — a couple of hundred segments against several thousand.
+
+Three decisions carry the look. The colour runs *along* the structure rather than being flat, which
+is the strongest single cue that it is not red lightning. There is no white core — two soft layers,
+not the bolt's three — because a hot conducting centre is exactly what a glow discharge does not
+have. And most of the apparent brightness comes from the diffuse halos rather than the filaments,
+because that is what survives four hundred blocks of sky.
+
+They are consequences rather than events of their own: a sprite is raised over the discharge that
+caused it, and only when that discharge is far enough away to be looked at rather than stood under —
+from directly beneath a storm the cloud deck is in the way, which is true of the real thing and of
+Minecraft's cloud layer as well. `LightningEnvelope` supplies the timeline for both, so the sprite
+that is present in under a tick and the jet that takes nine to climb come out of the same tested
+maths as every bolt.
+
+## Cloud illumination
+
+`CloudLightSource` is a pulsing emissive region, not a light: nothing is relit, no block light is
+written and no volume is marched. `CloudIlluminationRenderer` draws four warped billboards per
+region through the curl-warped puff program, which is what makes a lit region a torn irregular
+volume rather than a soft circle. The per-quad noise offset is smuggled in as a hair of variation in
+the red and blue channels — the program already folds those into its noise lookup, and the shift is
+far too small to see as colour — so the effect costs one additive pass, no extra attachment, no
+read-back and no shader of its own. It works identically with and without a shader pack for the same
+reason everything else does: it is drawn into the mod's own framebuffer.
+
 ## Procedural geometry
 
 `MidpointDisplacementStrategy` starts from a start/end pair and subdivides in place inside primitive
@@ -207,6 +338,7 @@ matter how many bolts, particles or decals are alive:
 | --- | --- | --- |
 | `DECAL` / `DECAL_EMBER` | alpha / additive | ash imprint, cooling ember rim |
 | `RIPPLE` | additive | expanding surface deformation, drawn by the shockwave shader |
+| `CLOUD_LIGHT` | additive | cloud regions lit from the inside |
 | `ATMOSPHERE` | additive | wide haze around a bright event |
 | `FLASH` | additive | overexposed impact burst |
 | `GLOW` | additive | impact flash column, transient light pools, emissive haloes |

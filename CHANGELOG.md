@@ -1,5 +1,69 @@
 # Changelog
 
+## 1.3.0 — "The Sky Is Alive"
+
+### Lightning is no longer one algorithm with randomised parameters
+
+- **Five discharge archetypes**, each with its own geometry, timeline, colour, cloud glow and thunder:
+  negative cloud-to-ground, positive cloud-to-ground, cloud-to-cloud, intracloud and the megaflash.
+  Which one a strike is gets decided once from its seed and carried on the event, so every client
+  agrees without a packet
+- **Positive superbolts.** Rare, and immediately a different event rather than a brighter one: a
+  channel over twice as wide, roughly a fifth of the branching, a violet halo instead of a cyan one,
+  and a single dominant stroke that holds for the better part of a second instead of stuttering three
+  times. Default rate is one strike in twenty-five, configurable, and off entirely under reduced
+  flashing
+
+### The storm itself is electrically alive
+
+- **Cloud-to-cloud lightning.** Horizontal channels that travel through the storm, advance in legs
+  that change heading and altitude, branch flat rather than hanging downward, and never touch the
+  ground. Their thunder is scheduled from several points along the channel, so a long one arrives as a
+  roll rather than a clap
+- **Intracloud lightning.** Discharges buried in a cloud: barely any exposed channel, and the cloud
+  around it pulsing several times instead. A storm on the horizon is now busy without producing a
+  single ground strike
+- **Megaflashes.** Kilometre-scale horizontal events that propagate for over a second across most of
+  the visible storm. One in several hundred ambient discharges by default
+- **Localised cloud illumination.** Clouds light up from the inside around a discharge, as irregular
+  pulsing regions rather than a global sky flash. No shader pack required, no extra framebuffer, no
+  read-back — and no change to how the effect behaves under Iris
+
+### Above the storm
+
+- **Red sprites.** The enormous red structures that appear far above a thunderstorm moments after a
+  powerful positive discharge, and are gone in a fraction of a second. Built from their actual
+  morphology — a cluster of elements, each a diffuse head over a short bright body with tendrils
+  combed downward and outward, plus the faint cool fringe reaching up — rather than from a particle
+  effect. Raised only over a discharge far enough away to be looked at rather than stood under
+- **Blue jets.** Cones of violet-blue light climbing out of a cloud top and splitting near the end of
+  the climb. Slow enough that the rise itself is the effect, where a sprite is a flash
+- Both are rare by design and rarer still by configuration; `/tempestfx aloft red_sprite|blue_jet` is
+  the way to look at one on purpose
+
+### Configuration
+
+- New `sky` section: activity master switch and pace, cloud-to-cloud, intracloud, megaflash rarity,
+  cloud illumination and its strength, red sprites and blue jets with their own rates, and hard caps
+  on ambient channels, lit regions and events above the storm
+- New `lightning.superboltChance`
+- All of it exposed in the in-game settings screen, in English and Russian
+- Reduced flashing switches off intracloud pulse trains, cloud illumination, superbolts, sprites and
+  jets, and slows ambient activity to a third
+
+### API
+
+- `DischargeType` is public; `LightningEffect.builder().type(...)` asks for a specific archetype, and
+  leaving it unset lets Thunderhead choose one from the seed as before
+- `LightningStrikeFxEvent.dischargeType()` reports what a strike turned out to be
+- Existing `StrikeOptions` constructor calls still compile
+
+### Debug
+
+- `/tempestfx sky <archetype> [distance]` raises one discharge of a named archetype in front of the
+  player
+- The debug overlay reports storm charge, live aerial channels and lit cloud regions
+
 ## 1.2.0
 
 ### Rendering

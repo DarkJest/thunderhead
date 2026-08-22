@@ -25,6 +25,11 @@ public enum FxPass {
     RIPPLE(FxPrograms.Kind.SHOCKWAVE, FxTextures.RIPPLE, FxTextures.CURL, Blend.ADDITIVE, false),
     /** Wide atmospheric haze around a bright event. */
     ATMOSPHERE(FxPrograms.Kind.PARTICLE, FxTextures.ATMOSPHERE, null, Blend.ADDITIVE, false),
+    /**
+     * Cloud lit from the inside. Additive, and drawn by the curl-warped puff program so a lit region
+     * is a torn irregular volume rather than a soft circle.
+     */
+    CLOUD_LIGHT(FxPrograms.Kind.SMOKE, FxTextures.SMOKE, FxTextures.CURL, Blend.ADDITIVE, false),
     /** Additive overexposed burst at the impact point. */
     FLASH(FxPrograms.Kind.PARTICLE, FxTextures.FLASH, null, Blend.ADDITIVE, false),
     /** Additive radial glow: impact flash, transient light pools, embers. */

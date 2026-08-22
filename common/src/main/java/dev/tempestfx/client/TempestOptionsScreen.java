@@ -54,6 +54,21 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
             toggle("flicker", config.lightning.flicker, value -> config.lightning.flicker = value),
             toggle("distant_bolts", config.lighting.distantBolts, value -> config.lighting.distantBolts = value));
 
+        // The storm itself, rather than any one bolt.
+        list.addSmall(
+            toggle("sky_activity", config.sky.skyActivity, value -> config.sky.skyActivity = value),
+            percent("activity_rate", 0, 300, config.sky.activityRate, value -> config.sky.activityRate = value),
+            toggle("cloud_to_cloud", config.sky.cloudToCloud, value -> config.sky.cloudToCloud = value),
+            toggle("intracloud", config.sky.intracloud, value -> config.sky.intracloud = value),
+            toggle("cloud_illumination", config.sky.cloudIllumination,
+                value -> config.sky.cloudIllumination = value),
+            percent("cloud_illumination_strength", 0, 300, config.sky.cloudIlluminationStrength,
+                value -> config.sky.cloudIlluminationStrength = value),
+            percent("superbolts", 0, 25, config.lightning.superboltChance,
+                value -> config.lightning.superboltChance = value),
+            toggle("red_sprites", config.sky.redSprites, value -> config.sky.redSprites = value),
+            toggle("blue_jets", config.sky.blueJets, value -> config.sky.blueJets = value));
+
         list.addSmall(
             toggle("shockwave", config.impact.shockwave, value -> config.impact.shockwave = value),
             toggle("sparks", config.impact.sparks, value -> config.impact.sparks = value),

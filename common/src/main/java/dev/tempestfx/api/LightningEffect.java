@@ -32,6 +32,9 @@ public record LightningEffect(Vec3d position, long seed, float intensity,
 
     public Vec3d origin() { return options.origin(); }
 
+    /** The archetype asked for, or {@code null} to let Thunderhead choose one. */
+    public DischargeType type() { return options.type(); }
+
     /** Whether this effect brings its own look rather than following the player's settings. */
     public boolean styled() { return options.styled(); }
 
@@ -54,6 +57,12 @@ public record LightningEffect(Vec3d position, long seed, float intensity,
 
         /** Where the channel starts. Fixes the bolt's angle and length outright. */
         public Builder origin(Vec3d value) { options.origin(value); return this; }
+
+        /**
+         * Which archetype to draw. Leave it unset to let Thunderhead decide from the seed, which is
+         * what an integration that only wants "a lightning bolt" should do.
+         */
+        public Builder type(DischargeType value) { options.type(value); return this; }
 
         /** What the strike sounds like: which clip, how loud, how long after the flash. */
         public Builder thunder(ThunderOptions value) { options.thunder(value); return this; }

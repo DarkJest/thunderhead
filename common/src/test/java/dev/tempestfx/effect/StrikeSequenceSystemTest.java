@@ -25,7 +25,7 @@ class StrikeSequenceSystemTest {
 
         List<Integer> released = new ArrayList<>();
         for (int tick = 0; tick < 60; tick++) {
-            system.tick((position, seed, intensity, stroke) -> released.add(stroke));
+            system.tick((position, seed, intensity, stroke, type) -> released.add(stroke));
         }
         assertEquals(0, system.pendingCount());
         assertTrue(released.size() >= 1);
@@ -74,7 +74,7 @@ class StrikeSequenceSystemTest {
         system.onStrike(new LightningStrikeFxEvent(origin, MULTI_STROKE_SEED, 1f,
             LightningEnvironment.land(0x777777, true)), config);
         for (int tick = 0; tick < 60; tick++) {
-            system.tick((position, seed, intensity, stroke) -> {
+            system.tick((position, seed, intensity, stroke, type) -> {
                 assertTrue(position.distanceTo(origin) <= 2.61, "stroke landed " + position.distanceTo(origin));
                 assertEquals(origin.y(), position.y(), 1e-9, "height is resolved by the caller, not here");
             });

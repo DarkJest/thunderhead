@@ -16,6 +16,9 @@ package dev.tempestfx.lightning;
  * @param microBranchProbability chance a node grows a short stub that textures the channel
  * @param canopyBranches        near-horizontal channels spread across the cloud base
  * @param canopySpread          canopy length as a fraction of the channel height
+ * @param forkBiasY             vertical bias added to every fork direction; negative hangs the fork
+ *                              downward the way a cloud-to-ground leader branches, zero lets an
+ *                              aerial channel spread flat
  * @param maxSegments           hard cap on generated segments, protecting the render budget
  */
 public record LightningGenerationConfig(
@@ -32,6 +35,7 @@ public record LightningGenerationConfig(
     double microBranchProbability,
     int canopyBranches,
     double canopySpread,
+    double forkBiasY,
     int maxSegments
 ) {
     public LightningGenerationConfig {
@@ -46,12 +50,13 @@ public record LightningGenerationConfig(
         if (maxBranchDepth < 0 || maxBranchDepth > 4) throw new IllegalArgumentException("maxBranchDepth must be 0..4");
         if (canopyBranches < 0 || canopyBranches > 12) throw new IllegalArgumentException("canopyBranches must be 0..12");
         if (canopySpread < 0) throw new IllegalArgumentException("canopySpread must not be negative");
+        if (forkBiasY < -1 || forkBiasY > 1) throw new IllegalArgumentException("forkBiasY must be -1..1");
         if (maxSegments < 32) throw new IllegalArgumentException("maxSegments must leave room for a channel");
     }
 
     public static LightningGenerationConfig high() {
         return new LightningGenerationConfig(7, 6.5, 0.56, 0.34, 0.64, Math.toRadians(38),
-            0.34, 0.6, 0.36, 3, 0.2, 4, 0.55, 3600);
+            0.34, 0.6, 0.36, 3, 0.2, 4, 0.55, -0.18, 3600);
     }
 
     /** Distance-scaled variant. Fewer generations, forks and stubs the further the strike is. */
@@ -70,32 +75,64 @@ public record LightningGenerationConfig(
                                                  int depth, int canopy, int segmentCap) {
         return new LightningGenerationConfig(newGenerations, displacement, roughness, forkProbability,
             directionBias, branchAngleRadians, branchLength, branchDecay, branchJitter, depth,
-            stubProbability, canopy, canopySpread, Math.max(32, Math.min(maxSegments, segmentCap)));
+            stubProbability, canopy, canopySpread, forkBiasY, Math.max(32, Math.min(maxSegments, segmentCap)));
     }
 
     public LightningGenerationConfig withGenerations(int value) {
         return new LightningGenerationConfig(value, displacement, roughness, branchProbability, directionBias,
             branchAngleRadians, branchLength, branchDecay, branchJitter, maxBranchDepth, microBranchProbability,
-            canopyBranches, canopySpread, maxSegments);
+            canopyBranches, canopySpread, forkBiasY, maxSegments);
     }
 
     public LightningGenerationConfig withBranchProbability(double value) {
         return new LightningGenerationConfig(generations, displacement, roughness, value, directionBias,
             branchAngleRadians, branchLength, branchDecay, branchJitter, maxBranchDepth, microBranchProbability,
-            canopyBranches, canopySpread, maxSegments);
+            canopyBranches, canopySpread, forkBiasY, maxSegments);
+    }
+
+    /**
+     * How fast displacement amplitude decays per generation.
+     *
+     * <p>This is the fine-scale knob rather than the overall one: the early generations set the
+     * shape of the channel, the late ones set how sharply it kinks from segment to segment - and the
+     * kink angle is what decides whether the joints between ribbon quads are visible.
+     */
+    public LightningGenerationConfig withRoughness(double value) {
+        return new LightningGenerationConfig(generations, displacement, value, branchProbability, directionBias,
+            branchAngleRadians, branchLength, branchDecay, branchJitter, maxBranchDepth, microBranchProbability,
+            canopyBranches, canopySpread, forkBiasY, maxSegments);
     }
 
     public LightningGenerationConfig withDisplacement(double value) {
         return new LightningGenerationConfig(generations, value, roughness, branchProbability, directionBias,
             branchAngleRadians, branchLength, branchDecay, branchJitter, maxBranchDepth, microBranchProbability,
-            canopyBranches, canopySpread, maxSegments);
+            canopyBranches, canopySpread, forkBiasY, maxSegments);
+    }
+
+    public LightningGenerationConfig withMaxBranchDepth(int value) {
+        return new LightningGenerationConfig(generations, displacement, roughness, branchProbability, directionBias,
+            branchAngleRadians, branchLength, branchDecay, branchJitter, value, microBranchProbability,
+            canopyBranches, canopySpread, forkBiasY, maxSegments);
+    }
+
+    /** How forks lean out of their parent: down for a descending leader, flat for an aerial channel. */
+    public LightningGenerationConfig withForkBiasY(double value) {
+        return new LightningGenerationConfig(generations, displacement, roughness, branchProbability, directionBias,
+            branchAngleRadians, branchLength, branchDecay, branchJitter, maxBranchDepth, microBranchProbability,
+            canopyBranches, canopySpread, value, maxSegments);
+    }
+
+    public LightningGenerationConfig withMaxSegments(int value) {
+        return new LightningGenerationConfig(generations, displacement, roughness, branchProbability, directionBias,
+            branchAngleRadians, branchLength, branchDecay, branchJitter, maxBranchDepth, microBranchProbability,
+            canopyBranches, canopySpread, forkBiasY, value);
     }
 
     /** Scales the sky-spanning canopy, from none at 0 to a full cloud-base web. */
-    public LightningGenerationConfig withSkySpread(float scale) {
+    public LightningGenerationConfig withSkySpread(double scale) {
         int canopy = (int) Math.round(Math.min(12, canopyBranches * scale));
         return new LightningGenerationConfig(generations, displacement, roughness, branchProbability, directionBias,
             branchAngleRadians, branchLength, branchDecay, branchJitter, maxBranchDepth, microBranchProbability,
-            canopy, canopySpread * Math.max(0.2, scale), maxSegments);
+            canopy, canopySpread * Math.max(0.2, scale), forkBiasY, maxSegments);
     }
 }

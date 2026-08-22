@@ -49,6 +49,16 @@ public record LightningStrikeFxEvent(Vec3d position, long seed, float intensity,
 
     public Vec3d origin() { return options.origin(); }
 
+    /**
+     * Which archetype this flash is.
+     *
+     * <p>Resolved at ingest and carried from then on, so geometry, rendering, audio and gameplay all
+     * agree about what happened rather than each rolling for it.
+     */
+    public DischargeType dischargeType() {
+        return options.type() != null ? options.type() : DischargeType.NEGATIVE_CLOUD_TO_GROUND;
+    }
+
     /** True when the bolt came down on a player rather than terrain. */
     public boolean directPlayerHit() { return target.present() && target.player(); }
 
@@ -58,7 +68,11 @@ public record LightningStrikeFxEvent(Vec3d position, long seed, float intensity,
     /** Copy of this stroke at a new position, seed and intensity, used to build return strokes. */
     public LightningStrikeFxEvent asStroke(Vec3d newPosition, long newSeed, float newIntensity,
                                            LightningEnvironment newEnvironment, int strokeIndex) {
+        // The archetype and the look carry over - a later stroke is the same flash - but the origin
+        // does not: this stroke lands somewhere else and hangs from its own point in the cloud.
+        StrikeOptions strokeOptions = new StrikeOptions(options.style(), null, options.thunder(),
+            options.particles(), options.type());
         return new LightningStrikeFxEvent(newPosition, newSeed, newIntensity, newEnvironment,
-            StrikeTarget.none(), strokeIndex);
+            StrikeTarget.none(), strokeIndex, strokeOptions);
     }
 }

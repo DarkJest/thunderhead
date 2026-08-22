@@ -43,6 +43,9 @@ public final class TempestRenderTypes extends RenderType {
     public static final RenderType FLASH = additive("tempestfx_flash", FxTextures.FLASH, false);
     /** Wide atmospheric haze around a bright event. */
     public static final RenderType ATMOSPHERE = additive("tempestfx_atmosphere", FxTextures.ATMOSPHERE, false);
+    /** Additive curl-warped puff: a cloud region lit from the inside. */
+    public static final RenderType CLOUD_LIGHT = twoSampler("tempestfx_cloud_light", FxTextures.SMOKE,
+        TempestShaders::smokeShader, false);
     /** Additive turbulent puff: the plasma shell of ball lightning. */
     public static final RenderType PLASMA = additive("tempestfx_plasma", FxTextures.SMOKE, false);
     /** Translucent soft particulate: dust and ash flakes. */
@@ -67,6 +70,7 @@ public final class TempestRenderTypes extends RenderType {
             case DECAL_EMBER -> DECAL_EMBER;
             case RIPPLE -> RIPPLE;
             case ATMOSPHERE -> ATMOSPHERE;
+            case CLOUD_LIGHT -> CLOUD_LIGHT;
             case FLASH -> FLASH;
             case GLOW -> GLOW;
             case BOLT -> BOLT;
