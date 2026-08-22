@@ -53,8 +53,19 @@ public final class FxProgram implements AutoCloseable {
      */
     public static FxProgram compile(ResourceProvider resources, String name, List<String> attributes)
         throws IOException {
+        return compile(resources, name, name, attributes);
+    }
+
+    /**
+     * As above, but with the vertex stage taken from another file.
+     *
+     * <p>The post passes all draw the same clip-space fullscreen quad and differ only in their
+     * fragment stage, so they share one vertex shader rather than carrying three identical copies.
+     */
+    public static FxProgram compile(ResourceProvider resources, String name, String vertexName,
+                                    List<String> attributes) throws IOException {
         RenderSystem.assertOnRenderThread();
-        int vertex = compileStage(resources, name, ".vsh", GL20.GL_VERTEX_SHADER);
+        int vertex = compileStage(resources, vertexName, ".vsh", GL20.GL_VERTEX_SHADER);
         int fragment = 0;
         int program = 0;
         try {

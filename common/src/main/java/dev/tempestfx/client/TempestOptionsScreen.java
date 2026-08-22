@@ -93,7 +93,11 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
                 value -> config.camera.impulseStrength = value),
             toggle("dynamic_lighting", config.lighting.dynamicLighting,
                 value -> config.lighting.dynamicLighting = value),
-            toggle("world_flash", config.lighting.worldFlash, value -> config.lighting.worldFlash = value));
+            toggle("world_flash", config.lighting.worldFlash, value -> config.lighting.worldFlash = value),
+            toggle("bloom", config.lighting.bloom, value -> config.lighting.bloom = value),
+            percent("bloom_strength", 0, 300, config.lighting.bloomStrength,
+                value -> config.lighting.bloomStrength = value),
+            toggle("light_shafts", config.lighting.lightShafts, value -> config.lighting.lightShafts = value));
 
         list.addSmall(
             toggle("custom_thunder", config.audio.customThunder, value -> config.audio.customThunder = value),

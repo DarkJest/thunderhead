@@ -9,6 +9,10 @@
 //
 //   Sampler1  effect: rgb = premultiplied emissive colour, a = coverage after the depth test
 //   Sampler0  a copy of the scene, read only while a shockwave is refracting it
+//   Sampler2  the glow: bloom and light shafts, produced from Sampler1 at quarter resolution
+//
+// The glow is added as light and contributes no coverage, exactly like an additive layer in the
+// world pass would have. It cannot darken the scene and cannot hide anything behind it.
 //
 // Output is the source term of a premultiplied "over" blend, so the framebuffer ends up holding
 //   scene x (1 - coverage) + colour
@@ -16,7 +20,10 @@
 
 uniform sampler2D Sampler0;
 uniform sampler2D Sampler1;
+uniform sampler2D Sampler2;
 
+// glow strength; zero means the chain did not run and Sampler2 must not be read
+uniform vec4 TempestGlow;
 // centre.xy in screen space, radius, strength; strength of zero means no scene read at all
 uniform vec4 TempestRipple;
 // window aspect, wavefront phase
@@ -53,5 +60,6 @@ void main() {
         refracted = (texture(Sampler0, warped).rgb - texture(Sampler0, texCoord).rgb) * (1.0 - effect.a);
     }
 
-    fragColor = vec4(effect.rgb + refracted, effect.a);
+    vec3 glow = TempestGlow.x > 0.0 ? texture(Sampler2, texCoord).rgb * TempestGlow.x : vec3(0.0);
+    fragColor = vec4(effect.rgb + refracted + glow, effect.a);
 }

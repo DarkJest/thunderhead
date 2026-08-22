@@ -11,6 +11,21 @@
   a direction rather than as a shape switching on
 - Both are off with `lightning.steppedLeader`, which restores the previous smooth reveal
 
+### Glow
+
+- **Real bloom.** The overexposed core of a channel now bleeds into the pixels around it. Until now
+  there was none — the "bloom backend" simply multiplied the layers by 1.3, which brightens without
+  spreading. The chain runs on Thunderhead's own half-float buffer at quarter resolution and is added
+  during the composite
+- **Light shafts.** A bright channel fans shafts out between whatever stands in front of it, produced
+  by radially smearing the effect's own silhouette — which already carries a real depth test, so the
+  shafts break correctly around trees and terrain
+- Neither touches the scene, the frame's depth or any target the mod did not allocate, so both behave
+  identically with a shader pack and without one. If the post-processing programs will not compile,
+  they are simply absent and nothing else changes
+- `lighting.bloom`, `lighting.bloomStrength`, `lighting.lightShafts`; reduced flashing caps the bloom
+  and turns the shafts off
+
 ### Upward streamers and attachment
 
 - **Lightning rods, exposed metal and high ground reach up** as the leader closes, and the one that

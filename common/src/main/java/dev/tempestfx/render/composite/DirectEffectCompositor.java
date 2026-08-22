@@ -19,7 +19,7 @@ public final class DirectEffectCompositor implements EffectCompositor {
     }
 
     @Override
-    public void composite(DistortionField distortion) {
+    public void composite(DistortionField distortion, LightShaftField shafts) {
     }
 
     @Override

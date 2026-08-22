@@ -498,6 +498,42 @@ the pass interrupted cannot tell either.
 The debug overlay (`general.debug`) reports which of each is in force: `programs own | compositor
 isolated` is the intended path.
 
+## Glow: bloom and light shafts
+
+Both run on the mod's own half-float attachment, between the world pass and the composite, and read
+nothing else — not the scene, not the frame's depth, not any target the mod did not allocate. That is
+the entire compatibility argument: there is no pipeline the chain has to be correct about.
+
+```text
+effect (full)  --extract-->  bright (1/2)  --blur X-->  ping (1/4)
+                                           --blur Y-->  pong (1/4)
+                                           --shafts-->  ping (1/4)
+                                                          ↓
+                          composite: scene x (1 - coverage) + colour + glow
+```
+
+Four small draws at a quarter of the pixels. The bloom is produced at low resolution deliberately
+and magnified by the hardware on the way back, because a wide soft bleed is what bilinear upscaling
+of a blurred quarter-res image already looks like.
+
+The headroom it feeds on comes from accumulation, not from any one layer. `VertexConsumer` quantises
+colour to eight bits, so a single ribbon can never emit above one; a dozen additive layers over the
+core of a close strike can, and the half-float attachment keeps that instead of clamping it. The
+bright pass takes what is over the threshold with a soft knee, so a decaying bolt fades out of the
+bloom rather than popping out of it.
+
+**The shafts are a radial blur of the effect, never of the scene**, and that distinction is what makes
+them correct. The attachment already had a real depth test applied to it while it was drawn, so
+terrain and leaves have carved the channel's silhouette out of it; smearing that silhouette away from
+the bolt reproduces exactly the shafts light throws between the things blocking it. Sampling the scene
+instead would need the frame's depth buffer, which the mod borrows but cannot rely on being a texture
+— `EffectRenderTarget` handles a renderbuffer too, and a renderbuffer cannot be sampled. An effect
+that worked in vanilla and failed under some packs would defeat the point of the compositor.
+
+The three programs are **optional**. The ones that shape geometry are all-or-nothing, because a pass
+drawn with the wrong program is worse than a pass drawn the old way; these are enhancements on top of
+a complete image, so one that will not compile costs exactly itself and leaves the native path alone.
+
 ## Air distortion
 
 `AirDistortionSystem` measures the strongest active wavefront during the world pass, where the pose

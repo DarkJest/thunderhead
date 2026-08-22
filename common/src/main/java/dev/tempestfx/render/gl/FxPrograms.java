@@ -32,18 +32,44 @@ public final class FxPrograms implements AutoCloseable {
         /** Untextured fragments. */
         SOLID("tempest_solid", DefaultVertexFormat.POSITION_COLOR),
         /** The fullscreen composite. */
-        COMPOSITE("tempest_composite", DefaultVertexFormat.POSITION_TEX_COLOR);
+        COMPOSITE("tempest_composite", DefaultVertexFormat.POSITION_TEX_COLOR),
+        /** Bright pass and first downsample of the effect attachment. Optional. */
+        BLOOM_EXTRACT("tempest_bloom_extract", "tempest_bloom", DefaultVertexFormat.POSITION_TEX_COLOR, true),
+        /** One axis of the gaussian, run twice. Optional. */
+        BLOOM_BLUR("tempest_bloom_blur", "tempest_bloom", DefaultVertexFormat.POSITION_TEX_COLOR, true),
+        /** Radial smear of the bloom, away from the channel. Optional. */
+        BLOOM_SHAFTS("tempest_bloom_shafts", "tempest_bloom", DefaultVertexFormat.POSITION_TEX_COLOR, true);
 
         private final String shader;
+        private final String vertexShader;
         private final VertexFormat format;
+        private final boolean optional;
 
         Kind(String shader, VertexFormat format) {
+            this(shader, shader, format, false);
+        }
+
+        Kind(String shader, String vertexShader, VertexFormat format, boolean optional) {
             this.shader = shader;
+            this.vertexShader = vertexShader;
             this.format = format;
+            this.optional = optional;
         }
 
         public VertexFormat format() {
             return format;
+        }
+
+        /**
+         * Whether the mod can draw without this one.
+         *
+         * <p>The programs that shape geometry are all-or-nothing: a pass drawn with the wrong program
+         * is worse than a pass drawn the old way. The post passes are not — bloom and light shafts are
+         * enhancements on top of a complete image, so one that will not compile on some driver costs
+         * exactly itself instead of dragging the whole native path down with it.
+         */
+        public boolean optional() {
+            return optional;
         }
     }
 
@@ -85,6 +111,11 @@ public final class FxPrograms implements AutoCloseable {
         programs.clear();
     }
 
+    private static FxProgram compile(Minecraft minecraft, Kind kind) throws java.io.IOException {
+        List<String> attributes = kind.format().getElementAttributeNames();
+        return FxProgram.compile(minecraft.getResourceManager(), kind.shader, kind.vertexShader, attributes);
+    }
+
     private boolean ensureCompiled() {
         if (!enabled) return false;
         if (!programs.isEmpty()) return true;
@@ -93,11 +124,10 @@ public final class FxPrograms implements AutoCloseable {
         if (minecraft == null || minecraft.getResourceManager() == null) return false;
         try {
             for (Kind kind : Kind.values()) {
-                List<String> attributes = kind.format().getElementAttributeNames();
-                programs.put(kind, FxProgram.compile(minecraft.getResourceManager(), kind.shader, attributes));
+                if (kind.optional()) continue;
+                programs.put(kind, compile(minecraft, kind));
             }
             TempestFx.log().info("Compiled {} effect programs", programs.size());
-            return true;
         } catch (Exception failure) {
             failed = true;
             close();
@@ -105,5 +135,15 @@ public final class FxPrograms implements AutoCloseable {
                 failure);
             return false;
         }
+        // Separately, and survivably: losing these costs the enhancement and nothing else.
+        try {
+            for (Kind kind : Kind.values()) {
+                if (kind.optional()) programs.put(kind, compile(minecraft, kind));
+            }
+        } catch (Exception failure) {
+            TempestFx.log().warn("Post-processing programs unavailable; bloom and light shafts are off",
+                failure);
+        }
+        return true;
     }
 }

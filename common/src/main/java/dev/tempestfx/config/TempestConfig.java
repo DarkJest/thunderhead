@@ -143,6 +143,19 @@ public final class TempestConfig {
         public int worldFlashTicks = 4;
         /** Distant cloud-to-ground channels across the horizon during a rolling thunder event. */
         public boolean distantBolts = true;
+        /**
+         * Real bloom on the mod's own effect buffer: the overexposed core of a channel bleeds into
+         * the pixels around it the way a camera would record it.
+         *
+         * <p>Runs entirely on a texture the mod allocated and never touches the scene, the frame's
+         * depth or anybody else's target, so it behaves the same with a shader pack as without one.
+         * If the post-processing programs will not compile it simply does not happen.
+         */
+        public boolean bloom = true;
+        public float bloomStrength = 1f;
+        /** Shafts of light fanning out from a bright channel, through whatever is in front of it. */
+        public boolean lightShafts = true;
+        public float lightShaftStrength = 1f;
     }
 
     public static final class Camera {
@@ -231,6 +244,8 @@ public final class TempestConfig {
         lighting.illuminationRadius = FxMath.clamp(lighting.illuminationRadius, 0f, 96f);
         lighting.illuminationStrength = FxMath.clamp(lighting.illuminationStrength, 0f, 3f);
         lighting.worldFlashTicks = FxMath.clamp(lighting.worldFlashTicks, 0, 12);
+        lighting.bloomStrength = FxMath.clamp(lighting.bloomStrength, 0f, 3f);
+        lighting.lightShaftStrength = FxMath.clamp(lighting.lightShaftStrength, 0f, 3f);
 
         camera.flashStrength = FxMath.clamp(camera.flashStrength, 0f, 1f);
         camera.impulseStrength = FxMath.clamp(camera.impulseStrength, 0f, 1f);
@@ -261,6 +276,9 @@ public final class TempestConfig {
             // precisely what this mode exists to remove - however rare and however far away it is.
             sky.redSprites = false;
             sky.blueJets = false;
+            // Bloom and shafts amplify exactly the brightness swing this mode exists to damp.
+            lighting.bloomStrength = Math.min(lighting.bloomStrength, 0.3f);
+            lighting.lightShafts = false;
         }
         return this;
     }

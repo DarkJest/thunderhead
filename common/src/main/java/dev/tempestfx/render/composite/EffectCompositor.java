@@ -40,8 +40,10 @@ public interface EffectCompositor extends AutoCloseable {
      *
      * @param distortion screen-space refraction to apply while compositing, or
      *     {@link DistortionField#NONE}
+     * @param shafts     where the brightest channel is on screen, for the light shafts, or
+     *     {@link LightShaftField#NONE}
      */
-    void composite(DistortionField distortion);
+    void composite(DistortionField distortion, LightShaftField shafts);
 
     /** Whether an isolated world pass is possible at all; for the debug overlay. */
     boolean available();

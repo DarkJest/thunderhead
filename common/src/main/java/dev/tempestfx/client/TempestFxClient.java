@@ -68,6 +68,7 @@ import dev.tempestfx.particle.BallLightningEmitter;
 import dev.tempestfx.render.AirDistortionSystem;
 import dev.tempestfx.render.BallLightningDraw;
 import dev.tempestfx.render.FxBatchTarget;
+import dev.tempestfx.render.LightShaftSystem;
 import dev.tempestfx.render.NativeFxBatchTarget;
 import dev.tempestfx.render.TempestRenderTypes;
 import dev.tempestfx.render.TempestShaders;
@@ -163,6 +164,7 @@ public final class TempestFxClient {
     private final VanillaFxBatchTarget vanillaTarget = new VanillaFxBatchTarget();
     private final FxStateGuard worldGuard = new FxStateGuard();
     private final AirDistortionSystem distortion = new AirDistortionSystem();
+    private final LightShaftSystem lightShafts = new LightShaftSystem();
     private final EffectCompositor compositor;
     /**
      * Spheres offered by the entity dispatcher this frame, drained by the world pass.
@@ -192,6 +194,7 @@ public final class TempestFxClient {
         this.detectedCompatibility = shaders.detect();
         this.bloomBackend = BloomBackendFactory.create(config.compatibility.bloomMode, compatibilityMode());
         this.compositor = EffectCompositors.create(config.compatibility.effectCompositor, programs);
+        applyGlowStrength();
 
         TempestShaders.setEnabled(config.compatibility.customShaders);
         programs.setEnabled(config.compatibility.customShaders);
@@ -317,9 +320,22 @@ public final class TempestFxClient {
      */
     public QualityPreset reloadConfig() {
         config = configManager.load();
+        applyGlowStrength();
         MinecraftServer server = Minecraft.getInstance().getSingleplayerServer();
         if (server != null) server.execute(() -> TempestFxServer.load(platform.configDirectory()));
         return config.performance.qualityPreset;
+    }
+
+    /**
+     * Hands the compositor the one number it needs from the configuration.
+     *
+     * <p>Pushed rather than pulled: the compositor owns GPU resources and nothing else, and one that
+     * read user settings would be two things.
+     */
+    private void applyGlowStrength() {
+        if (compositor instanceof dev.tempestfx.render.composite.FramebufferEffectCompositor framebuffer) {
+            framebuffer.setGlowStrength(config.lighting.bloom ? config.lighting.bloomStrength : 0f);
+        }
     }
 
     /** Opens the settings screen over whatever is on screen now. */
@@ -687,6 +703,8 @@ public final class TempestFxClient {
         stack.translate(-camera.x(), -camera.y(), -camera.z());
         try {
             distortion.capture(scene.shockwaves(), stack, camera, partialTick, config);
+            lightShafts.capture(scene.lightning(), scene.skyDischarges(), stack, camera,
+                partialTick, config);
             if (bloomActive) bloomBackend.begin();
             worldRenderer.render(scene, stack, target, camera, partialTick, config,
                 bloomBackend.emissiveBoost(), shaderPackProfile(isolated && own));
@@ -713,9 +731,10 @@ public final class TempestFxClient {
     public void renderPostLevel() {
         if (!config.general.enabled) return;
         try {
-            compositor.composite(distortion.field());
+            compositor.composite(distortion.field(), lightShafts.field());
         } finally {
             distortion.clear();
+            lightShafts.clear();
         }
     }
 
