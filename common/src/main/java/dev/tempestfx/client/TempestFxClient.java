@@ -69,6 +69,7 @@ import dev.tempestfx.render.AirDistortionSystem;
 import dev.tempestfx.render.BallLightningDraw;
 import dev.tempestfx.render.FxBatchTarget;
 import dev.tempestfx.render.LightShaftSystem;
+import dev.tempestfx.render.ScreenProjection;
 import dev.tempestfx.render.NativeFxBatchTarget;
 import dev.tempestfx.render.TempestRenderTypes;
 import dev.tempestfx.render.TempestShaders;
@@ -707,7 +708,7 @@ public final class TempestFxClient {
                 partialTick, config);
             if (bloomActive) bloomBackend.begin();
             worldRenderer.render(scene, stack, target, camera, partialTick, config,
-                bloomBackend.emissiveBoost(), shaderPackProfile(isolated && own));
+                bloomBackend.emissiveBoost(), shaderPackProfile(isolated && own), pixelScale());
         } finally {
             try {
                 try {
@@ -1037,6 +1038,21 @@ public final class TempestFxClient {
     private ShaderPackProfile shaderPackProfile(boolean isolated) {
         return isolated ? ShaderPackProfile.FULL
             : ShaderPackProfile.of(shaders.shaderPackActive(compatibilityMode()));
+    }
+
+    /**
+     * How much world one pixel covers, per block of distance, for this frame.
+     *
+     * <p>Read from the live projection matrix rather than from the field-of-view setting, so it
+     * follows a spyglass, a resolution change and any pipeline handing the frame its own projection.
+     */
+    private double pixelScale() {
+        Minecraft minecraft = Minecraft.getInstance();
+        int height = minecraft.getMainRenderTarget() != null
+            ? minecraft.getMainRenderTarget().height
+            : minecraft.getWindow().getHeight();
+        return ScreenProjection.pixelWorldScale(
+            com.mojang.blaze3d.systems.RenderSystem.getProjectionMatrix(), height);
     }
 
     /** The profile for geometry drawn outside the mod's own world pass; see the entity renderer. */

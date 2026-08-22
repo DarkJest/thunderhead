@@ -40,7 +40,7 @@ world      surface sampling                                   Minecraft world
 mixin      four client hooks and one shared accessor          Minecraft internals
 ```
 
-Everything above `entity` in that list is unit-testable without a game instance, which is why 244
+Everything above `entity` in that list is unit-testable without a game instance, which is why 256
 tests cover geometry, envelopes, flash sequences, seeds, noise, audio maths, particle budgets,
 discharge behaviour, imprint lifetime, ball lightning motion, near-miss damage, particle lighting,
 storm charge, ambient scheduling, sprite and jet morphology, the public API and config validation.
@@ -497,6 +497,33 @@ the pass interrupted cannot tell either.
 
 The debug overlay (`general.debug`) reports which of each is in force: `programs own | compositor
 isolated` is the intended path.
+
+## Ribbon quality
+
+Two things decide whether a channel reads as a channel rather than as the quads it is made of.
+
+**Segments share their joints.** Each segment is a camera-facing quad, and one that derives its side
+vector from its own direction does not agree with its neighbour about where their shared edge is: the
+outer corner opens by `halfWidth × tan(kink / 2)`. That is invisible on a thin, densely branched bolt
+and conspicuous on a wide bare trunk, which is why the positive flash originally had to have its
+roughness lowered to hide it. `LightningRenderer` now walks branches as polylines and mitres each
+joint — both segments are handed the same side vector at the point they share, and the half-width is
+scaled by `1 / cos(θ/2)` so the ribbon keeps its thickness through the corner, clamped so a hairpin
+cannot throw a spike across the screen. Consecutive segments already agree about width at a shared
+point, because the width profile is continuous in position along the channel, so the vertices land
+exactly on top of each other.
+
+A hidden neighbour is still used for the mitre. The visible run then ends on the geometry it would
+have had if the whole branch were drawn, so a fork blinking on and off cannot make the trunk twitch.
+
+**Thin ribbons fade instead of fattening.** A branch whose projected width falls under about a pixel
+cannot be rasterised honestly. The old answer was a floor of `0.0016` blocks of extra half-width per
+block of distance — a constant tuned at one resolution and one field of view, which widened distant
+branches into bright uniform threads and made a storm front shimmer as the camera turned. The floor
+is now measured: `ScreenProjection.pixelWorldScale` reads the focal length straight out of the live
+projection matrix, so it follows a spyglass, a resolution change and any pipeline handing the frame
+its own projection. A ribbon that has to be widened to reach the floor loses in alpha exactly what it
+gained in width, so energy is conserved and a distant branch fades out rather than staying a thread.
 
 ## Glow: bloom and light shafts
 

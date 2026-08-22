@@ -32,6 +32,26 @@ public final class ScreenProjection {
     }
 
     /**
+     * World units one pixel covers, per block of distance from the camera.
+     *
+     * <p>Multiply by a distance and you have the size of a pixel out there. A ribbon narrower than
+     * that cannot be rasterised honestly: it either drops out between samples or is widened into
+     * something thicker than it should be, and widening is what makes a horizon full of thin branches
+     * shimmer as the camera turns.
+     *
+     * <p>Taken from the projection matrix rather than from the field-of-view option, so it follows a
+     * spyglass, a resolution change and any pipeline that hands the frame a projection of its own.
+     * {@code m11} of a perspective matrix is {@code 1 / tan(fovY / 2)}.
+     *
+     * @param screenHeight height of the target being drawn into, in pixels
+     */
+    public static double pixelWorldScale(Matrix4f projection, int screenHeight) {
+        float focal = Math.abs(projection.m11());
+        if (!(focal > 1.0e-4f) || screenHeight <= 0) return 0;
+        return 2.0 / (focal * screenHeight);
+    }
+
+    /**
      * Aspect ratio of a window, clamped away from zero so a degenerate frame cannot produce a
      * division by zero in a shader.
      */

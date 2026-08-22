@@ -137,9 +137,12 @@ public final class FxPrograms implements AutoCloseable {
         }
         // Separately, and survivably: losing these costs the enhancement and nothing else.
         try {
+            int before = programs.size();
             for (Kind kind : Kind.values()) {
                 if (kind.optional()) programs.put(kind, compile(minecraft, kind));
             }
+            TempestFx.log().info("Compiled {} post-processing programs; bloom and light shafts available",
+                programs.size() - before);
         } catch (Exception failure) {
             TempestFx.log().warn("Post-processing programs unavailable; bloom and light shafts are off",
                 failure);

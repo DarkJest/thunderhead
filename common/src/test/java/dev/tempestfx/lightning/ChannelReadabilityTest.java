@@ -74,6 +74,12 @@ class ChannelReadabilityTest {
 
     @Test
     void aBareBrightTrunkDoesNotShowItsJoints() {
+        // Mitring since removed the geometric seam outright - both segments at a joint are handed the
+        // same side vector, so their vertices coincide - and this measurement no longer corresponds to
+        // anything visible. It is kept because the property it pins is independently true: a
+        // high-current channel is smoother than an ordinary one, and a bare trunk has no forks to hide
+        // behind whatever the renderer does.
+        //
         // The negative flash is the reference again: it has always looked right, and it hides its
         // joints among dense forks. Anything with the forks stripped away has to do better than it,
         // not merely as well.

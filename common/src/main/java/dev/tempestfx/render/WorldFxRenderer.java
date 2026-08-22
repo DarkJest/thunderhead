@@ -61,9 +61,14 @@ public final class WorldFxRenderer {
         }
     }
 
+    /**
+     * @param pixelScale world units one pixel covers per block of distance, from
+     *     {@link ScreenProjection#pixelWorldScale}; the channel renderer needs it to know when a
+     *     ribbon has become too thin to draw honestly
+     */
     public void render(Scene scene, PoseStack stack, FxBatchTarget target,
                        Vec3d camera, float partialTick, TempestConfig config, float emissiveBoost,
-                       ShaderPackProfile profile) {
+                       ShaderPackProfile profile, double pixelScale) {
         float emissive = emissiveBoost * profile.emissiveScale();
         PoseStack.Pose pose = stack.last();
 
@@ -143,10 +148,12 @@ public final class WorldFxRenderer {
             || !scene.rodCoronas().isEmpty()) {
             pass(target, FxPass.BOLT, consumer -> {
                 for (ActiveLightningEffect effect : scene.lightning()) {
-                    lightningRenderer.render(effect, stack, consumer, camera, partialTick, config, emissive, profile);
+                    lightningRenderer.render(effect, stack, consumer, camera, partialTick, config, emissive,
+                        profile, pixelScale);
                 }
                 for (ActiveLightningEffect effect : scene.skyDischarges()) {
-                    lightningRenderer.render(effect, stack, consumer, camera, partialTick, config, emissive, profile);
+                    lightningRenderer.render(effect, stack, consumer, camera, partialTick, config, emissive,
+                        profile, pixelScale);
                 }
                 luminousRenderer.renderFilaments(scene.luminousEvents(), pose, consumer, camera, partialTick,
                     config.general.reducedFlashing, profile);
@@ -156,7 +163,8 @@ public final class WorldFxRenderer {
                     shockwaveRenderer.renderRing(effect, pose, consumer, camera, partialTick, config);
                 }
                 for (ActiveLightningEffect effect : scene.distantBolts()) {
-                    lightningRenderer.render(effect, stack, consumer, camera, partialTick, config, emissive, profile);
+                    lightningRenderer.render(effect, stack, consumer, camera, partialTick, config, emissive,
+                        profile, pixelScale);
                 }
                 dischargeRenderer.render(scene.discharges(), pose, consumer, camera, partialTick);
                 particleRenderer.renderStreaks(scene.particles(), pose, consumer, camera, partialTick);

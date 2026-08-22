@@ -14,6 +14,8 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 public final class RibbonRenderer {
     /** Constant column of the profile mask; the mask tapers along u, which we do not want here. */
     private static final float PROFILE_U = 0.5f;
+    /** Ceiling on how far a joint may widen; a hairpin would otherwise throw a spike across the screen. */
+    private static final double MAX_MITER = 2.9;
 
     private RibbonRenderer() {}
 
@@ -54,6 +56,74 @@ public final class RibbonRenderer {
             PROFILE_U, 1f, red, green, blue, alpha);
         vertex(pose, consumer, sx - sideX * startWidth, sy - sideY * startWidth, sz - sideZ * startWidth,
             PROFILE_U, 1f, red, green, blue, alpha);
+    }
+
+    /**
+     * Ribbon between two points whose side vectors the caller has already decided.
+     *
+     * <p>This is what makes a chain of segments one ribbon instead of a row of separate quads. Each
+     * segment on its own produces a side vector from its own direction, so two segments meeting at an
+     * angle do not share an edge and the outer corner of the joint opens by
+     * {@code halfWidth * tan(kink / 2)} — invisible on a thin branched bolt, conspicuous on a wide
+     * bare trunk. Given the side vector of the shared point instead, both quads put their vertices in
+     * exactly the same place and the seam cannot exist.
+     *
+     * @param sideStart unit side vector at the start, already mitred by the caller
+     * @param sideEnd   unit side vector at the end
+     */
+    public static void renderRibbon(PoseStack.Pose pose, VertexConsumer consumer,
+                                    double sx, double sy, double sz, double ex, double ey, double ez,
+                                    double[] sideStart, double[] sideEnd,
+                                    double startWidth, double endWidth,
+                                    float red, float green, float blue, float alpha) {
+        if (alpha <= 0) return;
+        double sxw = sideStart[0] * startWidth, syw = sideStart[1] * startWidth, szw = sideStart[2] * startWidth;
+        double exw = sideEnd[0] * endWidth, eyw = sideEnd[1] * endWidth, ezw = sideEnd[2] * endWidth;
+        vertex(pose, consumer, sx + sxw, sy + syw, sz + szw, PROFILE_U, 0f, red, green, blue, alpha);
+        vertex(pose, consumer, ex + exw, ey + eyw, ez + ezw, PROFILE_U, 0f, red, green, blue, alpha);
+        vertex(pose, consumer, ex - exw, ey - eyw, ez - ezw, PROFILE_U, 1f, red, green, blue, alpha);
+        vertex(pose, consumer, sx - sxw, sy - syw, sz - szw, PROFILE_U, 1f, red, green, blue, alpha);
+    }
+
+    /**
+     * The mitred side vector at a point where two directions meet.
+     *
+     * <p>Both directions must be unit length and point along the ribbon. Passing the same vector
+     * twice gives the ordinary perpendicular, which is what the ends of a run want.
+     *
+     * @param out receives the unit side vector
+     * @return the miter scale: multiply the half-width by it to keep the ribbon's thickness constant
+     *     through the joint. Clamped, because a hairpin turn would otherwise throw a spike across the
+     *     screen.
+     */
+    public static double miterSide(double ax, double ay, double az, double bx, double by, double bz,
+                                   double viewX, double viewY, double viewZ, double[] out) {
+        double dx = ax + bx, dy = ay + by, dz = az + bz;
+        double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (length < 1.0e-8) {
+            // The two directions cancel: the ribbon doubles back on itself. Use either one.
+            dx = ax; dy = ay; dz = az;
+            length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (length < 1.0e-8) { out[0] = 1; out[1] = 0; out[2] = 0; return 1; }
+        }
+        dx /= length; dy /= length; dz /= length;
+
+        double sideX = dy * viewZ - dz * viewY;
+        double sideY = dz * viewX - dx * viewZ;
+        double sideZ = dx * viewY - dy * viewX;
+        double sideLength = Math.sqrt(sideX * sideX + sideY * sideY + sideZ * sideZ);
+        if (sideLength < 1.0e-8) {
+            // Pointing straight at the camera: any perpendicular reads the same on screen.
+            sideX = -dz; sideY = 0; sideZ = dx;
+            sideLength = Math.sqrt(sideX * sideX + sideZ * sideZ);
+            if (sideLength < 1.0e-8) { out[0] = 1; out[1] = 0; out[2] = 0; return 1; }
+        }
+        out[0] = sideX / sideLength;
+        out[1] = sideY / sideLength;
+        out[2] = sideZ / sideLength;
+
+        double cosine = dx * ax + dy * ay + dz * az;
+        return cosine > 0.34 ? 1.0 / cosine : MAX_MITER;
     }
 
     /** Camera-facing square centred on a world point, used for burst and haze billboards. */

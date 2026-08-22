@@ -11,6 +11,17 @@
   a direction rather than as a shape switching on
 - Both are off with `lightning.steppedLeader`, which restores the previous smooth reveal
 
+### Ribbon quality
+
+- **Mitred joints.** Segments of one channel now share the vertices where they meet instead of each
+  deriving its own, so the seam at a corner is gone structurally rather than hidden by tuning. The
+  half-width is compensated through the corner and clamped, so a hairpin cannot throw a spike
+- **Distant branches fade instead of fattening.** A ribbon thinner than a pixel used to be widened by
+  a constant tuned at one resolution, which turned a storm front into hundreds of bright uniform
+  threads that shimmered when the camera turned. The floor is now measured from the live projection
+  matrix — so it follows resolution, field of view and a spyglass — and whatever width a ribbon has to
+  borrow to reach it, it gives back in alpha
+
 ### Glow
 
 - **Real bloom.** The overexposed core of a channel now bleeds into the pixels around it. Until now
