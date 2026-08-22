@@ -8,6 +8,7 @@ import dev.tempestfx.effect.ActiveLuminousEvent;
 import dev.tempestfx.effect.AshImprint;
 import dev.tempestfx.effect.CloudLightSource;
 import dev.tempestfx.effect.EntityDischarge;
+import dev.tempestfx.effect.RodCorona;
 import dev.tempestfx.effect.ShockwaveEffect;
 import dev.tempestfx.effect.TransientLightSystem.TransientPointLight;
 import dev.tempestfx.math.Vec3d;
@@ -36,6 +37,7 @@ public final class WorldFxRenderer {
     private final CloudIlluminationRenderer cloudRenderer = new CloudIlluminationRenderer();
     private final LuminousEventRenderer luminousRenderer = new LuminousEventRenderer();
     private final StreamerRenderer streamerRenderer = new StreamerRenderer();
+    private final RodCoronaRenderer rodRenderer = new RodCoronaRenderer();
 
     /** Snapshot of everything the world pass needs; keeps the signature readable. */
     public record Scene(List<ActiveLightningEffect> lightning,
@@ -48,12 +50,14 @@ public final class WorldFxRenderer {
                         List<BallLightningDraw> spheres,
                         List<ActiveLightningEffect> skyDischarges,
                         List<CloudLightSource> cloudLights,
-                        List<ActiveLuminousEvent> luminousEvents) {
+                        List<ActiveLuminousEvent> luminousEvents,
+                        List<RodCorona> rodCoronas) {
         public boolean isEmpty() {
             return lightning.isEmpty() && shockwaves.isEmpty() && particles.isEmpty()
                 && lights.isEmpty() && discharges.isEmpty() && imprints.isEmpty()
                 && distantBolts.isEmpty() && spheres.isEmpty()
-                && skyDischarges.isEmpty() && cloudLights.isEmpty() && luminousEvents.isEmpty();
+                && skyDischarges.isEmpty() && cloudLights.isEmpty() && luminousEvents.isEmpty()
+                && rodCoronas.isEmpty();
         }
     }
 
@@ -107,10 +111,12 @@ public final class WorldFxRenderer {
             });
         }
         if (!scene.lights().isEmpty() || !scene.shockwaves().isEmpty() || !scene.particles().isEmpty()
-            || !scene.spheres().isEmpty() || StreamerRenderer.any(scene.lightning())) {
+            || !scene.spheres().isEmpty() || StreamerRenderer.any(scene.lightning())
+            || RodCoronaRenderer.any(scene.rodCoronas())) {
             if (profile.drawsWideGlow()) pass(target, FxPass.GLOW, consumer -> {
                 lightRenderer.render(scene.lights(), pose, consumer, partialTick);
                 streamerRenderer.renderAttachmentFlash(scene.lightning(), pose, consumer, camera, partialTick);
+                rodRenderer.renderGlow(scene.rodCoronas(), pose, consumer, camera, partialTick);
                 for (ShockwaveEffect effect : scene.shockwaves()) {
                     shockwaveRenderer.renderFlash(effect, pose, consumer, camera, partialTick);
                 }
@@ -133,7 +139,8 @@ public final class WorldFxRenderer {
         // Everything electrical shares one additive batch: channels, rings, sparks, arcs, spray.
         if (!scene.lightning().isEmpty() || !scene.shockwaves().isEmpty() || !scene.discharges().isEmpty()
             || !scene.particles().isEmpty() || !scene.distantBolts().isEmpty() || !scene.spheres().isEmpty()
-            || !scene.skyDischarges().isEmpty() || !scene.luminousEvents().isEmpty()) {
+            || !scene.skyDischarges().isEmpty() || !scene.luminousEvents().isEmpty()
+            || !scene.rodCoronas().isEmpty()) {
             pass(target, FxPass.BOLT, consumer -> {
                 for (ActiveLightningEffect effect : scene.lightning()) {
                     lightningRenderer.render(effect, stack, consumer, camera, partialTick, config, emissive, profile);
@@ -144,6 +151,7 @@ public final class WorldFxRenderer {
                 luminousRenderer.renderFilaments(scene.luminousEvents(), pose, consumer, camera, partialTick,
                     config.general.reducedFlashing, profile);
                 streamerRenderer.renderStreamers(scene.lightning(), pose, consumer, camera, partialTick, profile);
+                rodRenderer.renderArcs(scene.rodCoronas(), pose, consumer, camera, partialTick);
                 for (ShockwaveEffect effect : scene.shockwaves()) {
                     shockwaveRenderer.renderRing(effect, pose, consumer, camera, partialTick, config);
                 }

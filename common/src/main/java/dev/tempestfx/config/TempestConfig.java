@@ -121,6 +121,12 @@ public final class TempestConfig {
          * visible to do.
          */
         public boolean streamers = true;
+        /**
+         * Lightning rods crackle while the storm overhead is heavily charged. Nothing predicts a
+         * strike - vanilla decides one on the tick it happens - so this follows the storm's own
+         * accumulated charge, which is what makes a real rod hiss.
+         */
+        public boolean rodCorona = true;
         /** Scorched ash imprint left where a player took a direct hit. */
         public boolean ashImprint = true;
         public float ashImprintSeconds = 18f;

@@ -49,6 +49,21 @@ class AttachmentPlannerTest {
         assertTrue(attachment.point().y() > 64 + 4, "the channel must meet the streamer, not the block");
         assertTrue(attachment.point().y() < 64 + 4 + StreamerKind.ROD.reach(),
             "and it must not meet it past the end of the streamer");
+        assertEquals(new Vec3d(0, 68, 0), attachment.anchor(),
+            "the strike itself belongs on the rod, not in the air above it");
+    }
+
+    @Test
+    void theGapTheStreamerHasToBridgeStaysSmallEnoughToRead() {
+        // This is the bug the first cut shipped: a six-block reach put the channel four blocks above
+        // a one-block rod, and the two read as unrelated effects rather than as a connection.
+        for (StreamerKind kind : StreamerKind.values()) {
+            assertTrue(kind.reach() <= 2.0,
+                kind + " reaches " + kind.reach() + " blocks; a rod is one block tall");
+        }
+        StrikeAttachment attachment = AttachmentPlanner.plan(List.of(rod(0, 4)), GROUND, 7);
+        double gap = attachment.point().y() - attachment.anchor().y();
+        assertTrue(gap < 1.8, "the channel ends " + gap + " blocks above the rod; that is a detached spark");
     }
 
     @Test

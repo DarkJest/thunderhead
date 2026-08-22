@@ -79,6 +79,7 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
             toggle("ash", config.impact.ash, value -> config.impact.ash = value),
             toggle("air_distortion", config.impact.airDistortion, value -> config.impact.airDistortion = value),
             toggle("streamers", config.impact.streamers, value -> config.impact.streamers = value),
+            toggle("rod_corona", config.impact.rodCorona, value -> config.impact.rodCorona = value),
             toggle("entity_discharge", config.impact.entityDischarge,
                 value -> config.impact.entityDischarge = value),
             toggle("ash_imprint", config.impact.ashImprint, value -> config.impact.ashImprint = value));

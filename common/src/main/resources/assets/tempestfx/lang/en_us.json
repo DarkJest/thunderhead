@@ -51,6 +51,8 @@
   "option.tempestfx.blue_jets.tooltip": "Cones of violet-blue light climbing out of a cloud top. Slower than a sprite — long enough to watch it rise.",
   "option.tempestfx.streamers": "Upward Streamers",
   "option.tempestfx.streamers.tooltip": "Lightning rods, metal and high ground reach up as the leader closes, and whichever connects first decides where the bolt lands.",
+  "option.tempestfx.rod_corona": "Rod Corona",
+  "option.tempestfx.rod_corona.tooltip": "Lightning rods crackle while the storm overhead is heavily charged. Nothing predicts a strike — this follows the storm itself.",
   "option.tempestfx.shockwave": "Ground Shockwave",
   "option.tempestfx.sparks": "Sparks",
   "option.tempestfx.smoke": "Smoke and Steam",

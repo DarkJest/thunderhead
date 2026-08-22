@@ -11,11 +11,11 @@ package dev.tempestfx.strike;
  */
 public enum StreamerKind {
     /** A lightning rod. Longest reach, brightest, and the strongest claim on the strike. */
-    ROD(6.0, 1.0f, 3.2),
+    ROD(1.8, 1.0f, 3.2),
     /** Exposed metal: a copper block, an iron structure, a building corner sheathed in it. */
-    METAL(3.4, 0.72f, 1.9),
+    METAL(1.15, 0.72f, 1.9),
     /** Anything else tall enough to compete: a treetop, a tower, a ridge. */
-    TERRAIN(2.1, 0.5f, 1.35);
+    TERRAIN(0.85, 0.5f, 1.35);
 
     private final double reach;
     private final float brightness;
@@ -27,7 +27,13 @@ public enum StreamerKind {
         this.baseWeight = baseWeight;
     }
 
-    /** How far the streamer climbs, in blocks. */
+    /**
+     * How far the streamer climbs, in blocks.
+     *
+     * <p>Deliberately small. These are metre-scale reaches on a one-block rod, and the channel is
+     * built to end near the top of one: make them long and the bolt terminates in mid-air with a
+     * detached spark hanging under it, which is not an attachment, it is two unrelated effects.
+     */
     public double reach() { return reach; }
 
     /** Output relative to the channel it is reaching for. */

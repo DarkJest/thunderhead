@@ -32,6 +32,7 @@ import dev.tempestfx.effect.CameraImpulseSystem;
 import dev.tempestfx.effect.CloudIlluminationSystem;
 import dev.tempestfx.effect.DischargeTarget;
 import dev.tempestfx.effect.EffectManager;
+import dev.tempestfx.effect.RodCoronaSystem;
 import dev.tempestfx.effect.SkyDischargeSystem;
 import dev.tempestfx.effect.TransientLuminousSystem;
 import dev.tempestfx.effect.EntityDischargeSystem;
@@ -55,6 +56,7 @@ import dev.tempestfx.storm.StormElectricState;
 import dev.tempestfx.storm.StormSample;
 import dev.tempestfx.strike.AttachmentPlanner;
 import dev.tempestfx.strike.StrikeAttachment;
+import dev.tempestfx.world.RodScanner;
 import dev.tempestfx.world.StreamerScanner;
 import dev.tempestfx.sky.TransientLuminousEvent;
 import dev.tempestfx.particle.AshImprintEmitter;
@@ -142,9 +144,18 @@ public final class TempestFxClient {
     private final SkyDischargeSystem skyDischarges = new SkyDischargeSystem();
     private final CloudIlluminationSystem cloudLights = new CloudIlluminationSystem();
     private final TransientLuminousSystem luminousEvents = new TransientLuminousSystem();
+    private final RodCoronaSystem rodCoronas = new RodCoronaSystem();
 
     private final StrikeIngest ingest = new StrikeIngest();
     private final StreamerScanner streamerScanner = new StreamerScanner();
+    private final RodScanner rodScanner = new RodScanner();
+    /**
+     * Attachments resolved at publish time, read by the effect subscriber a moment later.
+     *
+     * <p>A tiny bounded map rather than a field, because the event bus may hold a strike raised off
+     * the client thread until the next tick, and two strikes can be in flight at once.
+     */
+    private final AttachmentCache attachments = new AttachmentCache();
     private final WorldFxRenderer worldRenderer = new WorldFxRenderer();
     /** The mod's own programs; the whole native path depends on them and nothing else does. */
     private final FxPrograms programs = new FxPrograms();
@@ -193,7 +204,7 @@ public final class TempestFxClient {
         thunderRolls.setPulseListener(this::onRollPulse);
         thunderRolls.setBoltListener(this::onRollBolt);
         registerSubsystems();
-        TempestFxApi.Internal.install(events::publish, this::triggerThunderRoll);
+        TempestFxApi.Internal.install(this::publishStrike, this::triggerThunderRoll);
         TempestFxHooks.install(this);
     }
 
@@ -203,7 +214,7 @@ public final class TempestFxClient {
      */
     private void registerSubsystems() {
         events.subscribeStrike(event -> effects.onStrike(event, platform.cameraPosition(), config,
-            resolveAttachment(event)));
+            attachments.get(event.seed())));
         events.subscribeStrike(this::emitImpactParticles);
         events.subscribeStrike(event -> screenFlash.onStrike(event, platform.cameraPosition(), config));
         events.subscribeStrike(event -> cameraImpulse.onStrike(event, platform.cameraPosition(), config));
@@ -269,6 +280,9 @@ public final class TempestFxClient {
         showcaseCamera.disable(Minecraft.getInstance(), false);
         currentLevel = level;
         ingest.clear();
+        attachments.clear();
+        rodScanner.clear();
+        rodCoronas.clear();
         effects.clear();
         particles.clear();
         lights.clear();
@@ -337,7 +351,7 @@ public final class TempestFxClient {
     public void onLightningSpawn(ClientLevel level, LightningBolt bolt) {
         if (!config.general.enabled || level != currentLevel) return;
         LightningStrikeFxEvent event = ingest.ingest(level, bolt, config);
-        if (event != null) events.publish(event);
+        if (event != null) publishStrike(event);
     }
 
     /** Hook target for {@code ClientLevel#addEntity}: keeps a cheap list instead of querying. */
@@ -366,7 +380,7 @@ public final class TempestFxClient {
         if (currentLevel == null) return;
         Vec3d grounded = snapToSurface(currentLevel, position);
         LightningEnvironment environment = environmentAt(currentLevel, grounded);
-        events.publish(new LightningStrikeFxEvent(grounded, seed, intensity, environment,
+        publishStrike(new LightningStrikeFxEvent(grounded, seed, intensity, environment,
             StrikeTarget.none(), stroke, StrikeOptions.builder().type(type).build()));
     }
 
@@ -408,9 +422,28 @@ public final class TempestFxClient {
         if (currentLevel == null || !config.general.enabled) return;
         StormSample sample = sampleStorm(currentLevel);
         storm.update(sample);
+        tickRodCoronas();
         AmbientDischarge discharge = skyPlanner.plan(storm, sample, config, platform.cameraPosition());
         if (discharge == null) return;
         raiseAmbientDischarge(discharge);
+    }
+
+    /**
+     * Keeps the rods around the player glowing in proportion to the storm's charge.
+     *
+     * <p>The scan is the expensive half and runs a few times a minute; the coronas themselves are a
+     * handful of centimetre-scale ribbons that cost nothing to keep alive.
+     */
+    private void tickRodCoronas() {
+        if (!config.impact.rodCorona) {
+            rodCoronas.tick(0, config);
+            return;
+        }
+        Vec3d camera = platform.cameraPosition();
+        if (currentLevel != null && rodScanner.due(camera)) {
+            rodCoronas.refresh(rodScanner.scan(currentLevel, camera), config);
+        }
+        rodCoronas.tick(storm.activity(), config);
     }
 
     private StormSample sampleStorm(ClientLevel level) {
@@ -499,6 +532,27 @@ public final class TempestFxClient {
      * ground to attach to, and a strike far enough away that a six-block streamer is under a pixel is
      * not worth the columns.
      */
+    /**
+     * Resolves where the strike actually terminated, then publishes it.
+     *
+     * <p>The attachment has to be known before anybody sees the event, because when a rod wins it
+     * moves the strike: the sparks, the light pool, the shockwave and the thunder all belong on the
+     * rod, not on the ground the bolt was originally aimed at. Resolving it afterwards would bend the
+     * channel to the rod and leave the impact where it was, which reads as the bolt missing.
+     *
+     * <p>Only a rod moves a strike. A hilltop winning the streamer race is a metre of channel, not a
+     * relocation, and vanilla's own position is the one the server applied damage at.
+     */
+    private void publishStrike(LightningStrikeFxEvent event) {
+        StrikeAttachment attachment = resolveAttachment(event);
+        if (attachment != null && attachment.onRod()) {
+            event = new LightningStrikeFxEvent(attachment.anchor(), event.seed(), event.intensity(),
+                event.environment(), event.target(), event.stroke(), event.options());
+        }
+        if (attachment != null) attachments.put(event.seed(), attachment);
+        events.publish(event);
+    }
+
     private StrikeAttachment resolveAttachment(LightningStrikeFxEvent event) {
         if (currentLevel == null || !config.impact.streamers) return null;
         if (!event.dischargeType().reachesGround()) return null;
@@ -689,22 +743,24 @@ public final class TempestFxClient {
             + " | discharges " + discharges.activeCount()
             + " | imprints " + imprints.activeCount(), 8, 32, 0xff8eaccd, true);
         graphics.drawString(minecraft.font, String.format(Locale.ROOT,
-            "storm charge %.2f | aerial %d | cloud light %d | sprites %d", storm.activity(),
-            skyDischarges.activeCount(), cloudLights.activeCount(), luminousEvents.activeCount()),
+            "storm charge %.2f | aerial %d | cloud light %d | sprites %d | rods %d", storm.activity(),
+            skyDischarges.activeCount(), cloudLights.activeCount(), luminousEvents.activeCount(),
+            rodCoronas.activeCount()),
             8, 44, 0xff8eaccd, true);
     }
 
     private WorldFxRenderer.Scene scene() {
         return new WorldFxRenderer.Scene(effects.lightning(), effects.shockwaves(), particles.active(),
             lights.lights(), discharges.discharges(), imprints.imprints(), distantBolts.bolts(), sphereDraws,
-            skyDischarges.discharges(), cloudLights.sources(), luminousEvents.events());
+            skyDischarges.discharges(), cloudLights.sources(), luminousEvents.events(),
+            rodCoronas.coronas());
     }
 
     private boolean sceneIsEmpty() {
         return effects.activeCount() == 0 && particles.activeCount() == 0 && lights.activeCount() == 0
             && discharges.activeCount() == 0 && imprints.activeCount() == 0 && distantBolts.activeCount() == 0
             && ballLightning.isEmpty() && skyDischarges.activeCount() == 0 && cloudLights.activeCount() == 0
-            && luminousEvents.activeCount() == 0;
+            && luminousEvents.activeCount() == 0 && rodCoronas.activeCount() == 0;
     }
 
     // ------------------------------------------------------------------ mixin hooks

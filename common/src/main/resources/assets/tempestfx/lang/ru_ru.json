@@ -51,6 +51,8 @@
   "option.tempestfx.blue_jets.tooltip": "Конусы сине-фиолетового света, поднимающиеся из вершины облака. Медленнее спрайта — подъём можно проследить глазом.",
   "option.tempestfx.streamers": "Восходящие стримеры",
   "option.tempestfx.streamers.tooltip": "Громоотводы, металл и возвышенности тянутся вверх навстречу лидеру, и тот, кто соединится первым, решает, куда ударит молния.",
+  "option.tempestfx.rod_corona": "Корона громоотвода",
+  "option.tempestfx.rod_corona.tooltip": "Громоотводы потрескивают, пока гроза над головой сильно заряжена. Удар это не предсказывает — эффект следует за самой грозой.",
   "option.tempestfx.shockwave": "Ударная волна",
   "option.tempestfx.sparks": "Искры",
   "option.tempestfx.smoke": "Дым и пар",

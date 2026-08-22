@@ -63,16 +63,17 @@ public final class AttachmentPlanner {
         }
 
         Vec3d point = winner.tip().add(0, winner.kind().reach() * ATTACHMENT_HEIGHT_RATIO, 0);
-        return new StrikeAttachment(point, streamers, winner.kind() == StreamerKind.ROD);
+        return new StrikeAttachment(point, winner.tip(), streamers, winner.kind() == StreamerKind.ROD);
     }
 
     /**
      * Where the channel actually meets the streamer, as a fraction of the streamer's reach.
      *
-     * <p>Not at the tip of the object and not at the end of the streamer: they meet in between, which
-     * is what makes the join read as two things connecting rather than one thing landing.
+     * <p>Near the top of the streamer rather than at the object itself, so the filament visibly
+     * bridges the last of the gap. Any lower and the channel simply lands on the block; much higher
+     * and there is nothing left for the streamer to be.
      */
-    private static final double ATTACHMENT_HEIGHT_RATIO = 0.72;
+    private static final double ATTACHMENT_HEIGHT_RATIO = 0.88;
 
     /** A short filament climbing from the object's tip, wandering and tapering as it goes. */
     private static List<LightningSegment> build(StreamerCandidate candidate, boolean winner, long seed) {
