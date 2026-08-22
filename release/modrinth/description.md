@@ -16,6 +16,10 @@ Vanilla lightning is over in a blink. Thunderhead gives every strike scale, shap
 ## ✨ Features
 
 - **Procedural lightning** — unique sky-spanning channels with thick trunks, tapering forks and fine branches.
+- **Five kinds of discharge** — negative and positive cloud-to-ground, cloud-to-cloud, intracloud and the rare megaflash, each with its own shape, timing, colour and thunder.
+- **Positive superbolts** — rare, wider, violet and almost unbranched; a different event rather than a brighter one.
+- **A storm alive between strikes** — horizontal channels travelling through the cloud deck, intracloud pulses that light the cloud from within, and clouds that glow around a discharge.
+- **Red sprites and blue jets** — the real phenomena high above severe storms, built from their actual morphology and rare enough to be worth recording.
 - **Multi-stroke flashes** — the channel can fire again along a related path instead of disappearing after one frame.
 - **Cinematic impacts** — pressure rings, impact bursts, sparks, debris, smoke, ash and atmospheric haze.
 - **Water-specific effects** — water spray, steam and a surface ripple replace dry impact debris.

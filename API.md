@@ -52,7 +52,7 @@ today. It will work unchanged once it is published there:
 
 ```gradle
 repositories { maven { url = "https://api.modrinth.com/maven" } }
-dependencies { compileOnly "maven.modrinth:thunderhead:1.1.0" }
+dependencies { compileOnly "maven.modrinth:thunderhead:1.3.0" }
 ```
 
 `compileOnly`, deliberately. Your mod compiles against Thunderhead and runs with or without it. Then
@@ -68,7 +68,7 @@ declare it as an *optional* dependency so the loader does not demand it:
 [[dependencies.yourmod]]
 modId = "tempestfx"
 type = "optional"
-versionRange = "[1.1.0,)"
+versionRange = "[1.3.0,)"
 ordering = "AFTER"
 side = "CLIENT"
 ```

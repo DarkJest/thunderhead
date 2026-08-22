@@ -334,7 +334,11 @@ Installing it on both the client and server additionally enables configurable ga
 
 ### Which Minecraft versions are supported?
 
-Thunderhead **1.2.0** supports **Minecraft 1.21.1** on **Fabric and NeoForge**.
+Thunderhead **1.3.0** supports **Minecraft 1.21.1** on **Fabric and NeoForge**.
+
+### What is new in 1.3.0?
+
+Lightning is no longer one algorithm with randomised parameters: there are five discharge types, including rare positive superbolts that are visibly a different event. The storm itself is now electrically active between ground strikes — horizontal cloud-to-cloud channels, intracloud pulses that light the cloud from inside, and rare kilometre-scale megaflashes. And very occasionally, far above a severe storm, a red sprite or a blue jet.
 
 ### Can other mods use Thunderhead?
 

@@ -1,6 +1,11 @@
 # Thunderhead release package
 
-Publication-ready copy, capture plans and verification notes for v1.1.0.
+Publication-ready copy, capture plans and verification notes.
+
+> The storefront copy, capture plans and media in this package were produced for v1.1.0 and
+> have not been reshot since. The version facts below and the checksums are current; the
+> screenshots, video scripts and gallery are not, and 1.3.0 added visible features they do not
+> show. Treat the media as pending rather than as approved.
 
 ## Brand
 
@@ -40,8 +45,8 @@ Replace every `{{..._URL}}` token after uploading the real media. Do not publish
 
 - `FAQ.md` — public FAQ based on actual implementation
 - `compatibility.md` — tested/untested source of truth
-- `release-notes/1.0.0.md` — user-facing release notes
+- `release-notes/1.3.0.md` — user-facing release notes for the current version
 - `checksums.sha256` — checksums for the current successful build artifacts
 
-Automated status at package creation: `clean buildAll` passed, 127 tests passed, Fabric and NeoForge jars were produced. Manual in-game, Iris, OptiFine and dedicated-server validation remain explicitly separated in the checklist.
+Automated status for 1.3.0: `clean buildAll` passed, 226 tests passed, Fabric and NeoForge jars were produced. Manual in-game, Iris, OptiFine and dedicated-server validation remain explicitly separated in the checklist.
 

@@ -9,6 +9,10 @@ Thunderhead is a cinematic lightning overhaul for Minecraft 1.21.1. Every strike
 ## Highlights
 
 - Huge seeded lightning channels with dynamic, tapered branching
+- Five discharge archetypes — negative and positive cloud-to-ground, cloud-to-cloud, intracloud, megaflash
+- Rare positive superbolts: wider, violet, almost unbranched, one stroke that holds
+- A storm that stays electrically alive between ground strikes, with clouds lit from within
+- Red sprites and blue jets above severe storms, from their real morphology
 - Multi-stroke flashes and storm-front lightning across the horizon
 - Shockwaves, impact bursts, smoke, sparks, debris, ash, steam and water spray
 - Transient scene illumination without chunk relighting
@@ -109,8 +113,8 @@ $env:JAVA_HOME = 'C:\path\to\jdk-21'
 
 Artifacts:
 
-- `fabric/build/libs/thunderhead-fabric-1.2.0.jar`
-- `neoforge/build/libs/thunderhead-neoforge-1.2.0.jar`
+- `fabric/build/libs/thunderhead-fabric-1.3.0.jar`
+- `neoforge/build/libs/thunderhead-neoforge-1.3.0.jar`
 
 See [BUILDING.md](../../BUILDING.md) for development runs and test scope, and [ARCHITECTURE.md](../../ARCHITECTURE.md) for implementation details.
 
