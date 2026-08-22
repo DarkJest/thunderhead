@@ -1,0 +1,216 @@
+package dev.tempestfx.fabric;
+
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.LongArgumentType;
+import dev.tempestfx.TempestFx;
+import dev.tempestfx.audio.TempestSounds;
+import dev.tempestfx.audio.ThunderProfile;
+import dev.tempestfx.client.TempestFxClient;
+import dev.tempestfx.entity.TempestEntities;
+import dev.tempestfx.math.Vec3d;
+import dev.tempestfx.platform.ClientPlatform;
+import dev.tempestfx.render.BallLightningEntityRenderer;
+import dev.tempestfx.render.EmptyLightningRenderer;
+import dev.tempestfx.render.TempestShaders;
+import java.nio.file.Path;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.CoreShaderRegistrationCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.EntityType;
+
+/**
+ * Fabric client bootstrap.
+ */
+public final class TempestFxFabricClient implements ClientModInitializer {
+    private static TempestFxClient client;
+
+    @Override
+    public void onInitializeClient() {
+        client = new TempestFxClient(new FabricPlatform());
+        EntityRendererRegistry.register(EntityType.LIGHTNING_BOLT, EmptyLightningRenderer::new);
+        var ballLightning = TempestEntities.ballLightning();
+        if (ballLightning != null) {
+            EntityRendererRegistry.register(ballLightning, BallLightningEntityRenderer::new);
+        } else {
+            TempestFx.log().error("Ball lightning entity type is missing; its renderer was skipped");
+        }
+        CoreShaderRegistrationCallback.EVENT.register(context -> {
+            // Core shaders resolve in the minecraft namespace, so the bundled files live there too.
+            for (String name : TempestShaders.NAMES) {
+                context.register(ResourceLocation.withDefaultNamespace(name),
+                    DefaultVertexFormat.POSITION_TEX_COLOR, shader -> TempestShaders.set(name, shader));
+            }
+        });
+
+        ClientTickEvents.END_CLIENT_TICK.register(client::tick);
+        ClientLifecycleEvents.CLIENT_STOPPING.register(minecraft -> client.shutdown());
+        // LAST matches NeoForge's AFTER_WEATHER: terrain, particles and weather are already drawn.
+        WorldRenderEvents.LAST.register(context -> {
+            if (context.matrixStack() != null) {
+                client.renderWorld(context.matrixStack(), context.tickCounter().getGameTimeDeltaPartialTick(false));
+            }
+        });
+        HudRenderCallback.EVENT.register((graphics, tickCounter) ->
+            client.renderHud(graphics, tickCounter.getGameTimeDeltaPartialTick(false)));
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> registerCommands(dispatcher));
+    }
+
+    /** The live client, for the optional ModMenu entrypoint. */
+    static TempestFxClient client() { return client; }
+
+    private void registerCommands(CommandDispatcher<FabricClientCommandSource> dispatcher) {
+        var strike = ClientCommandManager.literal("strike")
+            .executes(context -> { client.debugStrike(10, "land"); return 1; })
+            .then(ClientCommandManager.literal("--seed")
+                .then(ClientCommandManager.argument("seed", LongArgumentType.longArg())
+                    .executes(context -> {
+                        client.debugStrike(10, "land", LongArgumentType.getLong(context, "seed"));
+                        return 1;
+                    })))
+            .then(ClientCommandManager.argument("value", DoubleArgumentType.doubleArg(-30_000_000, 30_000_000))
+                .executes(context -> {
+                    client.debugStrike(DoubleArgumentType.getDouble(context, "value"), "land");
+                    return 1;
+                })
+                .then(ClientCommandManager.literal("--seed")
+                    .then(ClientCommandManager.argument("seed", LongArgumentType.longArg())
+                        .executes(context -> {
+                            client.debugStrike(DoubleArgumentType.getDouble(context, "value"), "land",
+                                LongArgumentType.getLong(context, "seed"));
+                            return 1;
+                        })))
+                .then(ClientCommandManager.argument("y", DoubleArgumentType.doubleArg(-2048, 2048))
+                    .then(ClientCommandManager.argument("z", DoubleArgumentType.doubleArg(-30_000_000, 30_000_000))
+                        .executes(context -> {
+                            client.debugStrikeAt(DoubleArgumentType.getDouble(context, "value"),
+                                DoubleArgumentType.getDouble(context, "y"),
+                                DoubleArgumentType.getDouble(context, "z"), null);
+                            return 1;
+                        })
+                        .then(ClientCommandManager.literal("--seed")
+                            .then(ClientCommandManager.argument("seed", LongArgumentType.longArg())
+                                .executes(context -> {
+                                    client.debugStrikeAt(DoubleArgumentType.getDouble(context, "value"),
+                                        DoubleArgumentType.getDouble(context, "y"),
+                                        DoubleArgumentType.getDouble(context, "z"),
+                                        LongArgumentType.getLong(context, "seed"));
+                                    return 1;
+                                }))))));
+        for (String environment : new String[] { "water", "snow", "sand", "stone", "forest" }) {
+            strike = strike.then(ClientCommandManager.literal(environment)
+                .executes(context -> { client.debugStrike(10, environment); return 1; })
+                .then(ClientCommandManager.literal("--seed")
+                    .then(ClientCommandManager.argument("seed", LongArgumentType.longArg())
+                        .executes(context -> {
+                            client.debugStrike(10, environment, LongArgumentType.getLong(context, "seed"));
+                            return 1;
+                        }))));
+        }
+        var strikeCamera = ClientCommandManager.literal("strike-camera")
+            .executes(context -> { client.debugStrike(10, "land"); return 1; })
+            .then(ClientCommandManager.argument("distance", DoubleArgumentType.doubleArg(0, 512))
+                .executes(context -> {
+                    client.debugStrike(DoubleArgumentType.getDouble(context, "distance"), "land");
+                    return 1;
+                })
+                .then(ClientCommandManager.literal("--seed")
+                    .then(ClientCommandManager.argument("seed", LongArgumentType.longArg())
+                        .executes(context -> {
+                            client.debugStrike(DoubleArgumentType.getDouble(context, "distance"), "land",
+                                LongArgumentType.getLong(context, "seed"));
+                            return 1;
+                        }))));
+        var camera = ClientCommandManager.literal("camera")
+            .then(ClientCommandManager.literal("cinematic")
+                .executes(context -> { client.enableShowcaseCamera(); return 1; }))
+            .then(ClientCommandManager.literal("off")
+                .executes(context -> { client.disableShowcaseCamera(); return 1; }))
+            .then(ClientCommandManager.literal("speed")
+                .then(ClientCommandManager.argument("speed", DoubleArgumentType.doubleArg(0.01, 0.5))
+                    .executes(context -> {
+                        client.setShowcaseCameraSpeed(DoubleArgumentType.getDouble(context, "speed"));
+                        return 1;
+                    })));
+        var settings = ClientCommandManager.literal("settings")
+            .executes(context -> {
+                // Deferred: the command runs while the chat screen is still up, and setScreen from
+                // inside it would be torn down again the moment chat closes.
+                net.minecraft.client.Minecraft.getInstance().execute(() -> client.openSettings(null));
+                return 1;
+            });
+
+        var reload = ClientCommandManager.literal("reload")
+            .executes(context -> {
+                context.getSource().sendFeedback(net.minecraft.network.chat.Component.translatable(
+                    "commands.tempestfx.reloaded", client.reloadConfig().name()));
+                return 1;
+            });
+
+        dispatcher.register(ClientCommandManager.literal("tempestfx")
+            .then(settings)
+            .then(reload)
+            .then(strike)
+            .then(strikeCamera)
+            .then(camera)
+            .then(ClientCommandManager.literal("directhit")
+                .executes(context -> { client.debugDirectHit(); return 1; }))
+            .then(ClientCommandManager.literal("summon")
+                .executes(context -> { client.summonRealBolt(); return 1; }))
+            .then(ClientCommandManager.literal("ball")
+                .executes(context -> { client.summonBallLightning(); return 1; }))
+            .then(ClientCommandManager.literal("roll")
+                .executes(context -> { client.debugThunderRoll(0, 0); return 1; })
+                .then(ClientCommandManager.argument("seconds", DoubleArgumentType.doubleArg(0.5, 16))
+                    .executes(context -> {
+                        client.debugThunderRoll(DoubleArgumentType.getDouble(context, "seconds"), 0);
+                        return 1;
+                    })
+                    .then(ClientCommandManager.argument("flashes", IntegerArgumentType.integer(1, 300))
+                        .executes(context -> {
+                            client.debugThunderRoll(DoubleArgumentType.getDouble(context, "seconds"),
+                                IntegerArgumentType.getInteger(context, "flashes"));
+                            return 1;
+                        }))))
+            .then(ClientCommandManager.literal("stress")
+                .then(ClientCommandManager.argument("count", IntegerArgumentType.integer(1, 100))
+                    .executes(context -> {
+                        client.stress(IntegerArgumentType.getInteger(context, "count"));
+                        return 1;
+                    }))));
+    }
+
+    private static final class FabricPlatform implements ClientPlatform {
+        @Override
+        public Path configDirectory() { return FabricLoader.getInstance().getConfigDir(); }
+
+        @Override
+        public Vec3d cameraPosition() {
+            var position = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+            return new Vec3d(position.x, position.y, position.z);
+        }
+
+        @Override
+        public void playThunder(ThunderProfile profile, Vec3d position, float volume, float pitch) {
+            var level = Minecraft.getInstance().level;
+            if (level == null) return;
+            var sound = TempestSounds.event(profile);
+            if (sound == null) return;
+            level.playLocalSound(position.x(), position.y(), position.z(), sound,
+                SoundSource.WEATHER, volume, pitch, false);
+        }
+    }
+}

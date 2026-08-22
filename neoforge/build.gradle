@@ -1,0 +1,36 @@
+plugins {
+    id 'java'
+    id 'net.neoforged.moddev'
+}
+
+base { archivesName = 'thunderhead-neoforge' }
+
+sourceSets.main.java.srcDir rootProject.file('common/src/main/java')
+sourceSets.main.resources.srcDir rootProject.file('common/src/main/resources')
+
+neoForge {
+    version = project.neo_version
+    parchment {
+        minecraftVersion = '1.21.1'
+        mappingsVersion = '2024.11.17'
+    }
+    runs {
+        client {
+            client()
+            systemProperty 'tempestfx.smokeStrike', 'true'
+            // -PtempestfxWorld="New World" boots straight into a save, so the smoke strike fires
+            // without any manual interaction.
+            if (project.hasProperty('tempestfxWorld')) {
+                programArguments.addAll('--quickPlaySingleplayer', project.property('tempestfxWorld').toString())
+            }
+        }
+    }
+    mods {
+        tempestfx { sourceSet sourceSets.main }
+    }
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('META-INF/neoforge.mods.toml') { expand version: project.version }
+}

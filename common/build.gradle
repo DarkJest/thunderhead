@@ -1,0 +1,28 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+}
+
+base { archivesName = 'thunderhead-common' }
+
+neoForge {
+    neoFormVersion = project.neoform_version
+    parchment {
+        minecraftVersion = '1.21.1'
+        mappingsVersion = '2024.11.17'
+    }
+}
+
+dependencies {
+    compileOnly 'org.spongepowered:mixin:0.8.7'
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    // The mod logs through SLF4J, which the game provides at runtime but the plain test JVM does
+    // not. The API isolates failing third-party listeners by logging them, so the tests that cover
+    // that path need the interface on the classpath; the no-op binding keeps the output clean.
+    testRuntimeOnly 'org.slf4j:slf4j-nop:2.0.9'
+    testImplementation 'org.slf4j:slf4j-api:2.0.9'
+    // Screen-space projection is pure matrix arithmetic, so it is unit-testable - but only with the
+    // same maths library the game uses. This is the version 1.21.1 ships.
+    testImplementation 'org.joml:joml:1.10.5'
+}

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "tempestfx",
+  "version": "${version}",
+  "name": "Thunderhead",
+  "description": "Cinematic lightning and thunder overhaul: procedural branching bolts, distant storm fronts, rolling thunder that lasts up to 15 seconds, shockwaves, ash scars and ball lightning.",
+  "authors": [
+    "GestSe"
+  ],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/tempestfx/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "dev.tempestfx.fabric.TempestFxFabric"
+    ],
+    "client": [
+      "dev.tempestfx.fabric.TempestFxFabricClient"
+    ],
+    "modmenu": [
+      "dev.tempestfx.fabric.TempestFxModMenu"
+    ]
+  },
+  "mixins": [
+    "tempestfx.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.14",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "iris": "*",
+    "modmenu": "*"
+  }
+}

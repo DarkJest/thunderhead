@@ -1,0 +1,119 @@
+{
+  "close_crack": {
+    "subtitle": "subtitles.tempestfx.thunder",
+    "sounds": [
+      {
+        "name": "tempestfx:close_crack",
+        "stream": false
+      }
+    ]
+  },
+  "close_heavy": {
+    "subtitle": "subtitles.tempestfx.thunder",
+    "sounds": [
+      {
+        "name": "tempestfx:close_heavy",
+        "stream": false
+      }
+    ]
+  },
+  "medium_rumble": {
+    "subtitle": "subtitles.tempestfx.thunder",
+    "sounds": [
+      {
+        "name": "tempestfx:medium_rumble",
+        "stream": false
+      }
+    ]
+  },
+  "distant_thunder": {
+    "subtitle": "subtitles.tempestfx.distant_thunder",
+    "sounds": [
+      {
+        "name": "tempestfx:distant_thunder",
+        "stream": false
+      }
+    ]
+  },
+  "long_rolling_thunder": {
+    "subtitle": "subtitles.tempestfx.distant_thunder",
+    "sounds": [
+      {
+        "name": "tempestfx:long_rolling_thunder",
+        "stream": false
+      }
+    ]
+  },
+  "impact_thump": {
+    "subtitle": "subtitles.tempestfx.impact",
+    "sounds": [
+      {
+        "name": "tempestfx:impact_thump",
+        "stream": false
+      }
+    ]
+  },
+  "electric_arc": {
+    "subtitle": "subtitles.tempestfx.arc",
+    "sounds": [
+      {
+        "name": "tempestfx:electric_arc",
+        "stream": false
+      }
+    ]
+  },
+  "roll_crack": {
+    "subtitle": "subtitles.tempestfx.thunder",
+    "sounds": [
+      {
+        "name": "tempestfx:roll_crack",
+        "stream": false
+      }
+    ]
+  },
+  "roll_boom": {
+    "subtitle": "subtitles.tempestfx.great_thunder",
+    "sounds": [
+      {
+        "name": "tempestfx:roll_boom",
+        "stream": false
+      }
+    ]
+  },
+  "roll_wall": {
+    "subtitle": "subtitles.tempestfx.great_thunder",
+    "sounds": [
+      {
+        "name": "tempestfx:roll_wall",
+        "stream": false
+      }
+    ]
+  },
+  "roll_body": {
+    "subtitle": "subtitles.tempestfx.great_thunder",
+    "sounds": [
+      {
+        "name": "tempestfx:roll_body",
+        "stream": false
+      }
+    ]
+  },
+  "roll_far": {
+    "subtitle": "subtitles.tempestfx.distant_thunder",
+    "sounds": [
+      {
+        "name": "tempestfx:roll_far",
+        "stream": false
+      }
+    ]
+  },
+  "roll_tail": {
+    "subtitle": "subtitles.tempestfx.distant_thunder",
+    "sounds": [
+      {
+        "name": "tempestfx:roll_tail",
+        "stream": false
+      }
+    ]
+  }
+}
