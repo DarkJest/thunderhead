@@ -9,6 +9,7 @@ import dev.tempestfx.TempestFx;
 import dev.tempestfx.audio.TempestSounds;
 import dev.tempestfx.audio.ThunderProfile;
 import dev.tempestfx.client.TempestFxClient;
+import dev.tempestfx.client.TempestOptionsScreen;
 import dev.tempestfx.entity.TempestEntities;
 import dev.tempestfx.math.Vec3d;
 import dev.tempestfx.platform.ClientPlatform;
@@ -17,6 +18,8 @@ import dev.tempestfx.render.EmptyLightningRenderer;
 import dev.tempestfx.render.TempestShaders;
 import java.nio.file.Path;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.options.VideoSettingsScreen;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -33,6 +36,7 @@ import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
 
@@ -54,6 +58,7 @@ public final class TempestFxNeoForgeClient {
         NeoForge.EVENT_BUS.addListener(this::renderWorld);
         NeoForge.EVENT_BUS.addListener(this::renderHud);
         NeoForge.EVENT_BUS.addListener(this::registerCommands);
+        NeoForge.EVENT_BUS.addListener(this::addSettingsButton);
         // NeoForge has no client-stopping event in 21.1. GPU and native resources are instead
         // released on level change and by the idle timers, which covers every case that matters
         // while the process is alive; the OS reclaims the rest at exit.
@@ -92,6 +97,29 @@ public final class TempestFxNeoForgeClient {
     private void renderHud(RenderGuiEvent.Post event) {
         client.renderHud(event.getGuiGraphics(), event.getPartialTick().getGameTimeDeltaPartialTick(false));
     }
+
+    /**
+     * A way into the settings from vanilla's own video settings.
+     *
+     * <p>NeoForge already offers the config button on the mod list, but that is not where a player
+     * looking for a visual mod's options looks first. Done through the screen event rather than a
+     * mixin, so a Minecraft update that moves the screen around costs a missing button rather than a
+     * crash.
+     */
+    private void addSettingsButton(ScreenEvent.Init.Post event) {
+        if (!(event.getScreen() instanceof VideoSettingsScreen screen)) return;
+        event.addListener(Button.builder(TempestOptionsScreen.buttonLabel(),
+                button -> Minecraft.getInstance().setScreen(client.settingsScreen(screen)))
+            .bounds(SETTINGS_BUTTON_MARGIN,
+                screen.height - SETTINGS_BUTTON_HEIGHT - SETTINGS_BUTTON_MARGIN,
+                SETTINGS_BUTTON_WIDTH, SETTINGS_BUTTON_HEIGHT)
+            .build());
+    }
+
+    /** Bottom-left, where vanilla puts nothing and mods conventionally do. */
+    private static final int SETTINGS_BUTTON_WIDTH = 110;
+    private static final int SETTINGS_BUTTON_HEIGHT = 20;
+    private static final int SETTINGS_BUTTON_MARGIN = 6;
 
     private void registerCommands(RegisterClientCommandsEvent event) {
         LiteralArgumentBuilder<CommandSourceStack> strike = Commands.literal("strike")

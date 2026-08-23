@@ -47,7 +47,13 @@ public final class ScreenProjection {
      */
     public static double pixelWorldScale(Matrix4f projection, int screenHeight) {
         float focal = Math.abs(projection.m11());
-        if (!(focal > 1.0e-4f) || screenHeight <= 0) return 0;
+        // A perspective matrix built for a player's field of view puts the focal length between
+        // roughly 0.6 (a very wide 110 degrees) and 4 (a spyglass). Anything outside that band is not
+        // the projection this was written for - a GUI ortho matrix, an identity, a frame in a state
+        // the mod was not expecting to be called from - and guessing from it would produce a floor
+        // wildly larger than any ribbon, which would fade the whole storm out. Answering "no floor"
+        // is always survivable; answering wrongly is not.
+        if (!(focal > 0.35f) || focal > 12f || screenHeight <= 0) return 0;
         return 2.0 / (focal * screenHeight);
     }
 

@@ -9,6 +9,7 @@ import dev.tempestfx.TempestFx;
 import dev.tempestfx.audio.TempestSounds;
 import dev.tempestfx.audio.ThunderProfile;
 import dev.tempestfx.client.TempestFxClient;
+import dev.tempestfx.client.TempestOptionsScreen;
 import dev.tempestfx.entity.TempestEntities;
 import dev.tempestfx.math.Vec3d;
 import dev.tempestfx.platform.ClientPlatform;
@@ -26,8 +27,12 @@ import net.fabricmc.fabric.api.client.rendering.v1.CoreShaderRegistrationCallbac
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.options.VideoSettingsScreen;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.EntityType;
@@ -67,7 +72,24 @@ public final class TempestFxFabricClient implements ClientModInitializer {
         HudRenderCallback.EVENT.register((graphics, tickCounter) ->
             client.renderHud(graphics, tickCounter.getGameTimeDeltaPartialTick(false)));
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> registerCommands(dispatcher));
+        // A way into the settings that does not need ModMenu installed. Vanilla's video settings is
+        // where a player looking for a visual mod's options would look first, and the screen API can
+        // add a widget there without a mixin - so a Minecraft update that moves the screen around
+        // costs a missing button rather than a crash.
+        ScreenEvents.AFTER_INIT.register((minecraft, screen, width, height) -> {
+            if (!(screen instanceof VideoSettingsScreen)) return;
+            Screens.getButtons(screen).add(Button.builder(TempestOptionsScreen.buttonLabel(),
+                    button -> minecraft.setScreen(client.settingsScreen(screen)))
+                .bounds(SETTINGS_BUTTON_MARGIN, height - SETTINGS_BUTTON_HEIGHT - SETTINGS_BUTTON_MARGIN,
+                    SETTINGS_BUTTON_WIDTH, SETTINGS_BUTTON_HEIGHT)
+                .build());
+        });
     }
+
+    /** Bottom-left, where vanilla puts nothing and mods conventionally do. */
+    private static final int SETTINGS_BUTTON_WIDTH = 110;
+    private static final int SETTINGS_BUTTON_HEIGHT = 20;
+    private static final int SETTINGS_BUTTON_MARGIN = 6;
 
     /** The live client, for the optional ModMenu entrypoint. */
     static TempestFxClient client() { return client; }

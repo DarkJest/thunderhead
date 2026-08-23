@@ -28,6 +28,24 @@ public final class GiantRollingThunderEffect {
     /** Half-width of the storm front, in radians. Narrow: the wall has to read as one front. */
     private static final double MIN_FRONT_ARC = 0.20;
     private static final double MAX_FRONT_ARC = 0.45;
+    /**
+     * How far out the storm front stands, as a fraction of how far the player can see.
+     *
+     * <p>Far enough to be weather rather than an event in the garden - a real front is kilometres
+     * away and the whole point of it is that it is over there - and near enough to stay inside the
+     * fog, because a wall generated beyond the fog is a wall nobody sees.
+     */
+    private static final double FRONT_DISTANCE_RATIO = 0.62;
+    private static final double MIN_FRONT_DISTANCE = 90;
+    private static final double MAX_FRONT_DISTANCE = 300;
+    /**
+     * Margin kept between the furthest channel and the edge of what the player can see.
+     *
+     * <p>The preferred distance is only preferred. On a low render distance there is simply not
+     * enough sky to stand a front off in, and a wall generated past the fog is a wall nobody sees -
+     * so the far end of the depth spread, not the front itself, is what has to fit.
+     */
+    private static final double FOG_MARGIN = 0.94;
     /** Depth spread around the front distance. A wall, not a cloud of scattered points. */
     private static final double DEPTH_SPREAD = 0.16;
     /** Fallback when the caller does not know the view distance. */
@@ -180,7 +198,10 @@ public final class GiantRollingThunderEffect {
         // The whole storm sits at one distance, comfortably inside the fog, in a narrow arc. Spread
         // the strokes over hundreds of blocks of depth and eighty degrees of sky and they stop
         // looking like a storm front and start looking like scattered noise.
-        double frontDistance = FxMath.clamp(viewDistance * 0.42, 55, 190);
+        // Furthest the front may stand and still keep its whole depth spread inside the fog.
+        double reach = viewDistance * FOG_MARGIN / (1 + DEPTH_SPREAD);
+        double frontDistance = FxMath.clamp(viewDistance * FRONT_DISTANCE_RATIO,
+            Math.min(MIN_FRONT_DISTANCE, reach), Math.min(MAX_FRONT_DISTANCE, reach));
         double frontArc = MIN_FRONT_ARC + random.nextDouble() * (MAX_FRONT_ARC - MIN_FRONT_ARC);
 
         for (int index = 0; index < total; index++) {

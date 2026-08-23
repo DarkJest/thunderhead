@@ -35,6 +35,14 @@ public final class LightningRenderer {
      * them from shimmering as the camera turns.
      */
     private static final double MIN_PIXELS = 1.5;
+    /**
+     * Floor on the sub-pixel dimming.
+     *
+     * <p>The measurement this rides on comes from the frame's own projection matrix, and a rendering
+     * feature is not allowed to be the reason lightning cannot be seen. Whatever the arithmetic
+     * decides, a channel keeps at least this much of its alpha.
+     */
+    private static final float MIN_COVERAGE = 0.3f;
     /** Absolute half-width floor used only under a shader pack, in blocks. */
     private static final double NEAR_WIDTH_FLOOR = 0.03;
     /**
@@ -134,7 +142,9 @@ public final class LightningRenderer {
                 double geometricEnd = segment.endWidth() * layerWidth;
                 double geometric = (geometricStart + geometricEnd) * 0.5;
                 // However much the ribbon had to be widened to survive rasterisation, it loses in alpha.
-                float coverage = pixelFloor > 1.0e-9 ? (float) Math.min(1.0, geometric / pixelFloor) : 1f;
+                float coverage = pixelFloor > 1.0e-9
+                    ? (float) Math.max(MIN_COVERAGE, Math.min(1.0, geometric / pixelFloor))
+                    : 1f;
                 float alpha = Math.min(1f, strength * alphaScale * coverage);
                 if (alpha <= 0.002f) continue;
 

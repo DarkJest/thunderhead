@@ -752,10 +752,15 @@ public final class TempestFxClient {
         graphics.drawString(minecraft.font, "Thunderhead | bolts " + effects.activeLightningCount()
             + " | segments " + segments + " | particles " + particles.activeCount()
             + "/" + particles.capacity(), 8, 8, 0xffb9d7ff, true);
+        // The pixel scale is on the overlay because it is the one number that can make lightning
+        // fade out if the frame hands the mod a projection it was not written for. Zero means the
+        // measurement was rejected and no sub-pixel floor is being applied at all, which is the safe
+        // answer rather than a broken one.
         graphics.drawString(minecraft.font, "pipeline " + compatibilityMode()
             + " | programs " + (programs.available() ? "own"
                 : TempestShaders.usingCustomShaders() ? "bundled" : "vanilla")
-            + " | compositor " + (compositor.available() ? "isolated" : "direct"), 8, 20, 0xff8eaccd, true);
+            + " | compositor " + (compositor.available() ? "isolated" : "direct")
+            + String.format(Locale.ROOT, " | px %.5f", pixelScale()), 8, 20, 0xff8eaccd, true);
         graphics.drawString(minecraft.font, "thunder queue " + thunder.pendingCount()
             + " | rolls " + thunderRolls.activeCount() + "/" + thunderRolls.pendingPulses()
             + " | sky " + distantBolts.activeCount()

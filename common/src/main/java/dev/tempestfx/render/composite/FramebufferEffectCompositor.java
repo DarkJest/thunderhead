@@ -59,6 +59,15 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
     private int missedComposites;
     private int idleTicks;
 
+    /**
+     * How much of a quarter-resolution blurred image one unit of user strength is worth.
+     *
+     * <p>A gaussian spreads the energy it is given, so the peak of the blurred bloom is a fraction of
+     * what went into it. Adding it back at face value is barely perceptible, which is precisely the
+     * report this constant exists to answer.
+     */
+    private static final float GLOW_GAIN = 2.2f;
+
     /** Strength the glow is added at; 0 skips the chain outright. */
     private float glowStrength = 1f;
 
@@ -198,7 +207,7 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
         program.setSampler("Sampler1", 1);
         // A glow the chain could not produce is simply absent: the shader is told zero strength and
         // never reads the sampler, so there is nothing to bind and nothing to go wrong.
-        program.setVector4("TempestGlow", glowTexture >= 0 ? 1f : 0f, 0f, 0f, 0f);
+        program.setVector4("TempestGlow", glowTexture >= 0 ? glowStrength * GLOW_GAIN : 0f, 0f, 0f, 0f);
         if (glowTexture >= 0) {
             GL13.glActiveTexture(GL13.GL_TEXTURE2);
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, glowTexture);

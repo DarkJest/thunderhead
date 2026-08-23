@@ -176,4 +176,7 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
     /** Label for the button that opens this screen from elsewhere. */
     public static Component title() { return Component.translatable("screen.tempestfx.title"); }
 
+    /** Shorter label, for the button wedged into vanilla's own video settings. */
+    public static Component buttonLabel() { return Component.translatable("screen.tempestfx.button"); }
+
 }

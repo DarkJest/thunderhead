@@ -210,6 +210,19 @@ class GiantRollingThunderEffectTest {
     }
 
     @Test
+    void theFrontStandsWellOffRatherThanInTheGarden() {
+        // A storm front is weather, not an event next to the player. At an ordinary render distance
+        // it should be most of the way out, not a third of the way.
+        double view = 240;
+        GiantRollingThunderEffect effect = GiantRollingThunderEffect.plan(4, LISTENER, ORIGIN, 1f, 120, 20, view);
+        double nearest = Double.MAX_VALUE;
+        for (DistantBoltCue cue : effect.bolts()) {
+            nearest = Math.min(nearest, Math.hypot(cue.top().x() - LISTENER.x(), cue.top().z() - LISTENER.z()));
+        }
+        assertTrue(nearest > view * 0.45, "the nearest channel stands at " + nearest + " of " + view);
+    }
+
+    @Test
     void aLongDenseEventStaysWithinItsGenerationBudget() {
         GiantRollingThunderEffect effect = GiantRollingThunderEffect.plan(
             11, LISTENER, ORIGIN, 1f, GiantRollingThunderEffect.MAX_DURATION_TICKS, 300);

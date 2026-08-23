@@ -30,7 +30,7 @@ import org.lwjgl.opengl.GL30;
  */
 final class BloomChain implements AutoCloseable {
     /** Values above this in the effect attachment are what bleeds. */
-    private static final float THRESHOLD = 0.85f;
+    private static final float THRESHOLD = 0.55f;
     /** Soft knee, so a decaying bolt fades out of the bloom instead of popping out of it. */
     private static final float KNEE = 0.45f;
     /** Blur radius, in quarter-resolution texels. */
