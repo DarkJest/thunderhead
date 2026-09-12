@@ -7,6 +7,7 @@ import net.minecraft.client.Screenshot;
 /** Opt-in, finite integration run. Use only with a disposable singleplayer QA save. */
 final class DevelopmentCapture {
     private final boolean enabled = Boolean.getBoolean("tempestfx.capture");
+    private final boolean surfaces = "surface".equals(System.getProperty("tempestfx.captureScene"));
     private int ticks;
     private int capturedTick = -1;
     private int burstFrames;
@@ -19,16 +20,25 @@ final class DevelopmentCapture {
             minecraft.options.pauseOnLostFocus = false;
             minecraft.options.framerateLimit().set(Integer.getInteger("tempestfx.captureFps", 60));
             minecraft.player.connection.sendCommand("gamemode spectator");
-            minecraft.player.connection.sendCommand("tp @s 152 90 173 0 -15");
+            minecraft.player.connection.sendCommand(surfaces ? "tp @s 152 76 173 0 10" : "tp @s 152 90 173 0 -15");
             minecraft.player.connection.sendCommand("time set midnight");
             minecraft.player.connection.sendCommand("weather clear");
+            if (surfaces) {
+                // Explicit opt-in disposable arena: ground plane and a wall for visible depth tests.
+                minecraft.player.connection.sendCommand("fill 136 70 184 168 70 224 minecraft:stone");
+                minecraft.player.connection.sendCommand("fill 144 71 206 160 79 206 minecraft:stone");
+            }
             client.config().general.debug = true;
         }
         if (ticks == 120 || ticks == 180 || ticks == 240 || ticks == 300) {
             burstFrames = 0;
             var kind = dev.tempestfx.api.LightningKind.values()[(ticks - 120) / 60];
-            client.debugTypedStrike(kind, 12345L);
+            if (surfaces) client.debugStrike(24, "auto", 12345L);
+            else client.debugTypedStrike(kind, 12345L);
             TempestFx.log().info("QA strike run={} tick={} seed=12345", run, ticks);
+            if (surfaces && !client.config().compatibility.customShaders) {
+                minecraft.player.connection.sendCommand("summon minecraft:lightning_bolt 152 71 197");
+            }
         }
         if (ticks == 400) {
             TempestFx.log().info("QA capture complete run={}; stopping disposable test client", run);

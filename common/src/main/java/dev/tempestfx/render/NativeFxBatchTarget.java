@@ -15,6 +15,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL33;
 
 /**
  * Draws the mod's passes with the mod's own programs, buffers and GL state.
@@ -136,6 +137,7 @@ public final class NativeFxBatchTarget implements FxBatchTarget {
         if (texture == null) return;
         int id = Minecraft.getInstance().getTextureManager().getTexture(texture).getId();
         GL13.glActiveTexture(GL13.GL_TEXTURE0 + unit);
+        dev.tempestfx.render.gl.FxStateGuard.useTextureFiltering(unit);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, id);
         program.setSampler(sampler, unit);
     }

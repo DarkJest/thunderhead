@@ -19,6 +19,7 @@ import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL33;
 import org.lwjgl.BufferUtils;
 import java.nio.IntBuffer;
 
@@ -62,6 +63,9 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
     private final FxStateGuard preparationGuard = new FxStateGuard();
     private final IntBuffer viewport = BufferUtils.createIntBuffer(4);
     private String status = "not yet drawn";
+    private SceneLightField lighting = SceneLightField.NONE;
+    private boolean capturedLightDepth;
+    private int captureDiagnostics;
 
     private ByteBufferBuilder quadBuffer;
     private VertexBuffer quad;
@@ -85,7 +89,11 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
     public String status() { return status; }
 
     @Override
+    public void lighting(SceneLightField field) { lighting = field == null ? SceneLightField.NONE : field; }
+
+    @Override
     public boolean beginWorldPass() {
+        capturedLightDepth = false;
         status = disabled ? "disabled" : "direct";
         if (disabled || worldPassOpen || !RenderSystem.isOnRenderThread()) return false;
         if (pendingComposite && ++missedComposites > MISSED_COMPOSITES_BEFORE_GIVING_UP) {
@@ -139,6 +147,7 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
         if (!worldPassOpen) return;
         worldPassOpen = false;
         try {
+            capturedLightDepth = lighting.active() && target.captureDepth();
             target.detachDepth();
         } catch (Throwable failure) {
             degrade("the borrowed depth buffer could not be released", failure);
@@ -160,11 +169,16 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
         try {
             RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
             DistortionField field = distortion == null ? DistortionField.NONE : distortion;
-            boolean refract = field.active()
+            boolean copied = (field.active() || capturedLightDepth)
                 && sceneCopy.capture(main.frameBufferId, main.width, main.height);
+            boolean refract = copied && field.active();
+            if (Boolean.getBoolean("tempestfx.capture") && capturedLightDepth && captureDiagnostics++ < 5) {
+                TempestFx.log().info("QA surface field: copy={} radius={} lights={}", copied, lighting.radius(), lighting.lights());
+            }
             GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, main.frameBufferId);
             GL11.glViewport(0, 0, main.viewWidth, main.viewHeight);
-            drawFullscreen(program, refract ? sceneCopy.textureId() : target.colorTextureId(), refract, field);
+            drawFullscreen(program, copied ? sceneCopy.textureId() : target.colorTextureId(), refract, field,
+                copied && capturedLightDepth);
         } catch (Throwable failure) {
             degrade("the composite pass failed", failure);
         } finally {
@@ -190,7 +204,7 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
     }
 
     /** One quad, one program, one blend mode; the only pass that ever touches the scene image. */
-    private void drawFullscreen(FxProgram program, int sceneTexture, boolean refract, DistortionField field) {
+    private void drawFullscreen(FxProgram program, int sceneTexture, boolean refract, DistortionField field, boolean lit) {
         if (quadBuffer == null) quadBuffer = new ByteBufferBuilder(4 * DefaultVertexFormat.POSITION_TEX_COLOR.getVertexSize());
         if (quad == null) quad = new VertexBuffer(VertexBuffer.Usage.DYNAMIC);
 
@@ -211,11 +225,26 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
             refract ? field.strength() : 0f);
         program.setVector4("TempestRippleShape", field.aspect(), field.phase(), 0f, 0f);
         GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        FxStateGuard.useTextureFiltering(0);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, sceneTexture);
         program.setSampler("Sampler0", 0);
         GL13.glActiveTexture(GL13.GL_TEXTURE1);
+        FxStateGuard.useTextureFiltering(1);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, target.colorTextureId());
         program.setSampler("Sampler1", 1);
+        GL13.glActiveTexture(GL13.GL_TEXTURE2);
+        FxStateGuard.useTextureFiltering(2);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, lit ? target.depthTextureId() : target.colorTextureId());
+        program.setSampler("SceneDepth", 2);
+        program.setVector4("LightControl", lit ? lighting.lights().size() : 0, lit ? lighting.radius() : 0, 0, 0);
+        if (lit) {
+            program.setMatrix("LightProjection", lighting.projection());
+            program.setMatrix("LightInverseProjection", lighting.inverseProjection());
+            for (int index = 0; index < lighting.lights().size(); index++) {
+                var light = lighting.lights().get(index);
+                program.setVector4("ChannelLight[" + index + "]", light.x(), light.y(), light.z(), light.power());
+            }
+        }
 
         // Clip space directly: the program declares no matrices, so nothing has to be pushed, saved
         // or restored to draw it.
@@ -260,6 +289,8 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
         if (!RenderSystem.isOnRenderThread()) return;
         worldPassOpen = false;
         pendingComposite = false;
+        capturedLightDepth = false;
+        lighting = SceneLightField.NONE;
         idleTicks = 0;
         target.close();
         sceneCopy.close();

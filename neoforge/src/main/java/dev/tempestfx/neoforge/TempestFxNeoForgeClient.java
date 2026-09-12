@@ -84,6 +84,10 @@ public final class TempestFxNeoForgeClient {
     private void tick(ClientTickEvent.Post event) { client.tick(Minecraft.getInstance()); }
 
     private void renderWorld(RenderLevelStageEvent event) {
+        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_ENTITIES) {
+            client.renderPackChannels(event.getPoseStack(), event.getPartialTick().getGameTimeDeltaPartialTick(false));
+            return;
+        }
         // AFTER_WEATHER matches Fabric's LAST: terrain, particles and weather are already drawn.
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_WEATHER) return;
         client.renderWorld(event.getPoseStack(), event.getPartialTick().getGameTimeDeltaPartialTick(false));

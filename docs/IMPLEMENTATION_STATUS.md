@@ -49,3 +49,36 @@
 - 1.4 implementation checkpoint complete. It remains an approximate geometric model, not a field solver.
 - 1.5 investigation: bundled Complementary declares lightningBoltPosition but does not use it;
   ARTShade does not reference it. Exposing that uniform alone cannot provide their missing lighting.
+
+## 1.5.0-dev — experimental surface illumination
+
+- Visual capture exposed subpixel dashes. Added a projection-aware minimum channel footprint and
+  isolated sampler-object bindings (guarded for OpenGL 3.2 without sampler-object support).
+- Prototype copies scene depth while the borrowed attachment is valid, reconstructs view-space
+  surfaces and normals, and shades them from up to four channel samples. Samples share flash exposure.
+- Eight-step screen-depth visibility is approximate: offscreen occluders, translucent volumes,
+  pack-native cloud transport and reflections are not supplied by this path. Full 1.5 acceptance NOT met.
+- Added resource revision handling so native GLSL is recompiled after resource reload.
+- buildAll passed before additional surface-field tests; first runtime prototype verification in progress.
+- No 1.6–2.0 implementation milestones are complete. Do not publish or relabel this as finished 2.0.
+- Prototype runtime compiled and completed captures (1789240471929). Reviewer review_1_5_0 found
+  loss of legacy illumination on fallback and ignored configured radius. Both corrected; additional
+  tests cover configured/zero radius and failed-isolation policy. Surface-focused captures next.
+- Surface arena run 1789240992833 completed. Strong-light diagnostic run 1789241120408 visibly lights
+  both the stone plane and wall; the copied-depth field is active. This proves surface behavior, not
+  complete shadows. 174 tests passed after the first-failure conservative fallback regression.
+- Added an opt-in pack-native channel material pass via standard RenderType.lightning. It is disabled
+  by default; native pack capture and additional review are in progress. No external shader files modified.
+- Native integration required Iris LightningHandler.IRIS_LIGHTNING rather than the plain Minecraft type:
+  the Iris wrapper sets/restores the material entity ID used by Complementary. Resolved reflectively with
+  a POSITION_COLOR check and isolated fallback when unavailable. Corrected native run 1789241779984 completed.
+- Important remaining acceptance issue: packs can replace channel alpha/color, changing pulse response.
+  Native mode stays opt-in; it does not establish physically consistent appearance across all packs.
+- AFTER_ENTITIES native capture 1789242023603 still shows a weak channel/dark depth stripe. Independent
+  diagnosis confirms Complementary replaces vertex RGBA and writes channel depth; native mode is NOT
+  visually accepted and stays off by default. Its source files were inspected, not modified.
+- Forced customShaders=false run 1789242293863 completed: actual lightning now falls back to the vanilla
+  entity renderer, and inspected frame 122-2 shows a visible bolt and sky lighting under Complementary.
+  API-only custom geometry remains limited when the mod's own programs are unavailable under a pack.
+- Latest milestone state: 1.3/1.4 implementation checkpoints reviewed; 1.5-dev surface prototype reviewed
+  and tested, but full 1.5 acceptance remains open. 1.6–2.0 are still pending implementation.

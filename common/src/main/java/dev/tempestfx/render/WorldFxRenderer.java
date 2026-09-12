@@ -50,7 +50,7 @@ public final class WorldFxRenderer {
 
     public void render(Scene scene, PoseStack stack, FxBatchTarget target,
                        Vec3d camera, float partialTick, TempestConfig config, float emissiveBoost,
-                       ShaderPackProfile profile) {
+                       ShaderPackProfile profile, boolean surfaceLighting, boolean channelsInPack) {
         float emissive = emissiveBoost * profile.emissiveScale();
         PoseStack.Pose pose = stack.last();
 
@@ -94,7 +94,7 @@ public final class WorldFxRenderer {
         if (!scene.lights().isEmpty() || !scene.shockwaves().isEmpty() || !scene.particles().isEmpty()
             || !scene.spheres().isEmpty()) {
             if (profile.drawsWideGlow()) pass(target, FxPass.GLOW, consumer -> {
-                lightRenderer.render(scene.lights(), pose, consumer, partialTick);
+                if (!surfaceLighting && config.lighting.dynamicLighting) lightRenderer.render(scene.lights(), pose, consumer, partialTick);
                 for (ShockwaveEffect effect : scene.shockwaves()) {
                     shockwaveRenderer.renderFlash(effect, pose, consumer, camera, partialTick);
                 }
@@ -119,13 +119,13 @@ public final class WorldFxRenderer {
             || !scene.particles().isEmpty() || !scene.distantBolts().isEmpty() || !scene.spheres().isEmpty()) {
             pass(target, FxPass.BOLT, consumer -> {
                 for (ActiveLightningEffect effect : scene.lightning()) {
-                    lightningRenderer.render(effect, stack, consumer, camera, partialTick, config, emissive, profile);
+                    if (!channelsInPack) lightningRenderer.render(effect, stack, consumer, camera, partialTick, config, emissive, profile);
                 }
                 for (ShockwaveEffect effect : scene.shockwaves()) {
                     shockwaveRenderer.renderRing(effect, pose, consumer, camera, partialTick, config);
                 }
                 for (ActiveLightningEffect effect : scene.distantBolts()) {
-                    lightningRenderer.render(effect, stack, consumer, camera, partialTick, config, emissive, profile);
+                    if (!channelsInPack) lightningRenderer.render(effect, stack, consumer, camera, partialTick, config, emissive, profile);
                 }
                 dischargeRenderer.render(scene.discharges(), pose, consumer, camera, partialTick);
                 particleRenderer.renderStreaks(scene.particles(), pose, consumer, camera, partialTick);

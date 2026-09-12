@@ -1,4 +1,8 @@
 {
+  "option.tempestfx.pack_native_channels": "Shader-pack channel pass",
+  "option.tempestfx.pack_native_channels.tooltip": "Experimental: use the pack's lightning material. Some packs replace pulse brightness and color. Keep off for Thunderhead's controlled pulse appearance.",
+  "option.tempestfx.surface_lighting": "Surface lighting",
+  "option.tempestfx.surface_lighting.tooltip": "Realistic: approximate lighting of visible surfaces using scene depth. Does not add shader-pack reflections or volumetric cloud lighting.",
   "option.tempestfx.realism": "Presentation",
   "option.tempestfx.realism.realistic": "Realistic",
   "option.tempestfx.realism.cinematic": "Cinematic",

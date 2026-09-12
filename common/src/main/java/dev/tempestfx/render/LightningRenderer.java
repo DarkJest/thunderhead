@@ -2,6 +2,8 @@ package dev.tempestfx.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.Minecraft;
 import dev.tempestfx.api.LightningStyle;
 import dev.tempestfx.config.TempestConfig;
 import dev.tempestfx.effect.ActiveLightningEffect;
@@ -40,6 +42,13 @@ public final class LightningRenderer {
         // there and given an absolute minimum for branches close enough that distance alone is small.
         double minWidth = Math.max(distance * MIN_WIDTH_PER_BLOCK * profile.minWidthScale() * (config.realistic() ? .4 : 1),
             profile.drawsWideGlow() ? 0 : NEAR_WIDTH_FLOOR);
+        if (config.realistic()) {
+            // Sub-pixel ribbons disappear between raster samples and look like dashed wires.
+            // Keep a 1.4-pixel footprint at the actual projection and framebuffer height.
+            double projectionY = Math.abs(RenderSystem.getProjectionMatrix().m11());
+            int pixels = Minecraft.getInstance().getMainRenderTarget().height;
+            if (projectionY > .001 && pixels > 0) minWidth = Math.max(minWidth, distance * 1.4 / (projectionY * pixels));
+        }
         // The player's settings for a strike of the mod's own; an integration's style for one it
         // asked for. Brightness and flicker are not in here - those are accessibility, and they are
         // read from the configuration above whatever any style says.

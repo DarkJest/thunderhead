@@ -59,7 +59,12 @@ import dev.tempestfx.render.TempestShaders;
 import dev.tempestfx.render.ShaderPackProfile;
 import dev.tempestfx.render.VanillaFxBatchTarget;
 import dev.tempestfx.render.WorldFxRenderer;
+import dev.tempestfx.render.SurfaceLightingPolicy;
+import dev.tempestfx.render.PackChannelRenderer;
 import dev.tempestfx.render.composite.EffectCompositor;
+import dev.tempestfx.render.composite.SceneLightField;
+import org.joml.Matrix4f;
+import com.mojang.blaze3d.systems.RenderSystem;
 import dev.tempestfx.render.composite.EffectCompositors;
 import dev.tempestfx.render.gl.FxPrograms;
 import dev.tempestfx.render.gl.FxStateGuard;
@@ -115,6 +120,10 @@ public final class TempestFxClient {
 
     private final StrikeIngest ingest = new StrikeIngest();
     private final WorldFxRenderer worldRenderer = new WorldFxRenderer();
+    private final PackChannelRenderer packChannels = new PackChannelRenderer();
+    private boolean channelsInPack;
+    private boolean packFramePrepared;
+    private boolean packFrameDrawn;
     /** The mod's own programs; the whole native path depends on them and nothing else does. */
     private final FxPrograms programs = new FxPrograms();
     private final NativeFxBatchTarget nativeTarget = new NativeFxBatchTarget(programs);
@@ -140,6 +149,8 @@ public final class TempestFxClient {
     private int smokeStrikeCountdown;
     private final DevelopmentCapture developmentCapture = new DevelopmentCapture();
     private long lastWorldFrameNanos;
+    private boolean lastIsolationFailed;
+    private String lastWorldPath = "not yet drawn";
 
     public TempestFxClient(ClientPlatform platform) {
         this.platform = platform;
@@ -188,9 +199,12 @@ public final class TempestFxClient {
         if (event.kind().contactsGround()) {
             effects.onContact(event, platform.cameraPosition(), config);
             emitImpactParticles(event);
+            // Keep the cheap fallback state even when surface shading is requested. Actual frame
+            // availability decides which path draws it; a failed depth attachment must not erase light.
             lights.onStrike(event, config);
         }
         screenFlash.onStrike(event, platform.cameraPosition(), config);
+        // Preserve fallback timing even before a frame discovers an unsupported depth target.
         worldFlash.onStrike(event, platform.cameraPosition(), config);
         if (!config.realistic() && event.kind().contactsGround()) {
             cameraImpulse.onStrike(event, platform.cameraPosition(), config);
@@ -243,6 +257,7 @@ public final class TempestFxClient {
     }
 
     private void onLevelChanged(ClientLevel level) {
+        packFramePrepared = packFrameDrawn = channelsInPack = false;
         showcaseCamera.disable(Minecraft.getInstance(), false);
         currentLevel = level;
         ingest.clear();
@@ -267,6 +282,7 @@ public final class TempestFxClient {
         // allocates them again. It is also a fresh chance for the programs to compile.
         compositor.close();
         programs.reload();
+        packChannels.close();
     }
 
     /**
@@ -297,6 +313,8 @@ public final class TempestFxClient {
     }
 
     private void applyRenderConfig() {
+        packFramePrepared = packFrameDrawn = channelsInPack = false;
+        packChannels.close();
         if (particles.capacity() != config.performance.maxParticles) {
             particles.clear();
             particles = new FxParticleSystem(config.performance.maxParticles, new ImpactParticleSpawnStrategy());
@@ -326,6 +344,7 @@ public final class TempestFxClient {
         vanillaTarget.close();
         compositor.close();
         programs.close();
+        packChannels.close();
         TempestShaders.clear();
     }
 
@@ -475,6 +494,26 @@ public final class TempestFxClient {
 
     // ------------------------------------------------------------------ rendering
 
+    /** Recognized lightning geometry must enter before the pack's later weather/composite stages. */
+    public void renderPackChannels(PoseStack stack, float partialTick) {
+        packFramePrepared = packFrameDrawn = false;
+        if (!config.general.enabled || currentLevel == null || !config.compatibility.customShaders || !config.compatibility.packNativeChannels
+            || !shaders.shaderPackActive(compatibilityMode())) return;
+        var scene = scene();
+        if (scene.lightning().isEmpty() && scene.distantBolts().isEmpty()) return;
+        prepareEffectFrames(scene, partialTick);
+        packFramePrepared = true;
+        packFrameDrawn = packChannels.draw(scene, stack, platform.cameraPosition(), partialTick, config);
+    }
+
+    private void prepareEffectFrames(WorldFxRenderer.Scene scene, float partialTick) {
+        long now = System.nanoTime();
+        float frameTicks = lastWorldFrameNanos == 0 ? 1f / 3f : (now - lastWorldFrameNanos) / 50_000_000f;
+        lastWorldFrameNanos = now;
+        for (ActiveLightningEffect effect : scene.lightning()) effect.prepareFrame(partialTick, frameTicks);
+        for (ActiveLightningEffect effect : scene.distantBolts()) effect.prepareFrame(partialTick, frameTicks);
+    }
+
     /**
      * The world pass.
      *
@@ -486,11 +525,9 @@ public final class TempestFxClient {
     public void renderWorld(PoseStack stack, float partialTick) {
         if (!config.general.enabled || currentLevel == null) return;
         WorldFxRenderer.Scene scene = scene();
-        long now = System.nanoTime();
-        float frameTicks = lastWorldFrameNanos == 0 ? 1f / 3f : (now - lastWorldFrameNanos) / 50_000_000f;
-        lastWorldFrameNanos = now;
-        for (ActiveLightningEffect effect : scene.lightning()) effect.prepareFrame(partialTick, frameTicks);
-        for (ActiveLightningEffect effect : scene.distantBolts()) effect.prepareFrame(partialTick, frameTicks);
+        if (!packFramePrepared) prepareEffectFrames(scene, partialTick);
+        channelsInPack = packFrameDrawn;
+        packFramePrepared = packFrameDrawn = false;
         if (scene.isEmpty()) return;
 
         Vec3d camera = platform.cameraPosition();
@@ -506,13 +543,19 @@ public final class TempestFxClient {
         // through Minecraft's shader objects, which a pack is free to redirect into its own buffers, so
         // a private attachment would collect nothing and cost a clear and a composite to prove it.
         boolean isolated = own && compositor.beginWorldPass();
+        lastIsolationFailed = !isolated;
+        lastWorldPath = own ? compositor.status() : "direct: vanilla programs";
         stack.pushPose();
         stack.translate(-camera.x(), -camera.y(), -camera.z());
         try {
+            compositor.lighting(isolated && config.realistic() && !hideLightningFlash()
+                ? SceneLightField.from(scene.lightning(), new Matrix4f(RenderSystem.getModelViewMatrix()).mul(stack.last().pose()),
+                    RenderSystem.getProjectionMatrix(), partialTick, config) : SceneLightField.NONE);
             distortion.capture(scene.shockwaves(), stack, camera, partialTick, config);
             if (bloomActive) bloomBackend.begin();
             worldRenderer.render(scene, stack, target, camera, partialTick, config,
-                bloomBackend.emissiveBoost(), shaderPackProfile(isolated && own));
+                bloomBackend.emissiveBoost(), shaderPackProfile(isolated && own),
+                SurfaceLightingPolicy.useSurfacePath(config, isolated, hideLightningFlash()), channelsInPack || !drawsOwnLightning());
         } finally {
             try {
                 try {
@@ -540,7 +583,7 @@ public final class TempestFxClient {
         } finally {
             distortion.clear();
         }
-        developmentCapture.frame(Minecraft.getInstance(), compositor.status());
+        developmentCapture.frame(Minecraft.getInstance(), lastWorldPath);
     }
 
     public void renderHud(GuiGraphics graphics, float partialTick) {
@@ -559,7 +602,7 @@ public final class TempestFxClient {
         graphics.drawString(minecraft.font, "pipeline " + compatibilityMode()
             + " | programs " + (programs.available() ? "own"
                 : TempestShaders.usingCustomShaders() ? "bundled" : "vanilla")
-            + " | compositor " + compositor.status(), 8, 20, 0xff8eaccd, true);
+            + " | compositor " + lastWorldPath + " | channel " + (channelsInPack ? "pack" : "own"), 8, 20, 0xff8eaccd, true);
         graphics.drawString(minecraft.font, "thunder queue " + thunder.pendingCount()
             + " | rolls " + thunderRolls.activeCount() + "/" + thunderRolls.pendingPulses()
             + " | sky " + distantBolts.activeCount()
@@ -581,10 +624,16 @@ public final class TempestFxClient {
 
     // ------------------------------------------------------------------ mixin hooks
 
+    /** A pack may discard generic fallback programs. Retain its real vanilla bolt renderer then. */
+    public boolean drawsOwnLightning() {
+        return config.general.enabled && (!shaders.shaderPackActive(compatibilityMode()) || programs.available());
+    }
+
     /** Extra client-side sky-flash ticks, honouring the vanilla accessibility option. */
     public int skyFlashTicks() {
         if (!config.general.enabled || config.general.reducedFlashing || hideLightningFlash()) return 0;
-        return worldFlash.flashTicks();
+        return SurfaceLightingPolicy.skyFlashTicks(worldFlash.flashTicks(), config,
+            !lastIsolationFailed && "isolated".equals(compositor.status()));
     }
 
     public boolean suppressVanillaSound(ResourceLocation sound) {

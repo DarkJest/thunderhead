@@ -16,6 +16,11 @@
 
 uniform sampler2D Sampler0;
 uniform sampler2D Sampler1;
+uniform sampler2D SceneDepth;
+uniform mat4 LightProjection;
+uniform mat4 LightInverseProjection;
+uniform vec4 LightControl;
+uniform vec4 ChannelLight[4];
 
 // centre.xy in screen space, radius, strength; strength of zero means no scene read at all
 uniform vec4 TempestRipple;
@@ -25,6 +30,29 @@ uniform vec4 TempestRippleShape;
 in vec2 texCoord;
 
 out vec4 fragColor;
+
+vec3 viewPosition(vec2 uv, float depth) {
+    vec4 point = LightInverseProjection * vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+    return point.xyz / point.w;
+}
+
+// Limited to visible depth. Off-screen occluders and pack-specific transparent/cloud volumes
+// cannot be inferred from this buffer; this is explicitly a surface-lighting approximation.
+float visibility(vec3 surface, vec3 source) {
+    for (int i = 1; i <= 8; ++i) {
+        vec3 samplePoint = mix(surface, source, float(i) / 9.0);
+        vec4 clip = LightProjection * vec4(samplePoint, 1.0);
+        if (clip.w <= 0.0) break;
+        vec2 uv = clip.xy / clip.w * 0.5 + 0.5;
+        if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) break;
+        float depth = texture(SceneDepth, uv).r;
+        if (depth < 0.99999) {
+            vec3 obstacle = viewPosition(uv, depth);
+            if (samplePoint.z < obstacle.z - max(0.35, abs(samplePoint.z) * 0.003)) return 0.0;
+        }
+    }
+    return 1.0;
+}
 
 void main() {
     vec4 effect = texture(Sampler1, texCoord);
@@ -53,5 +81,33 @@ void main() {
         refracted = (texture(Sampler0, warped).rgb - texture(Sampler0, texCoord).rgb) * (1.0 - effect.a);
     }
 
-    fragColor = vec4(effect.rgb + refracted, effect.a);
+    vec3 illumination = vec3(0.0);
+    if (LightControl.x > 0.0) {
+        float depth = texture(SceneDepth, texCoord).r;
+        vec3 surface = viewPosition(texCoord, depth);
+        // Evaluate derivatives before the depth branch so neighboring fragments stay coherent.
+        vec3 normal = cross(dFdx(surface), dFdy(surface));
+        float normalLength = length(normal);
+        if (depth > 0.0 && depth < 0.99999 && normalLength > 0.000001) {
+            normal /= normalLength;
+            if (dot(normal, -surface) < 0.0) normal = -normal;
+            float amount = 0.0;
+            for (int i = 0; i < 4; ++i) {
+                if (float(i) >= LightControl.x) break;
+                vec3 delta = ChannelLight[i].xyz - surface;
+                float distance = length(delta);
+                float radius = LightControl.y;
+                if (radius <= 0.0 || distance >= radius || distance < 0.001) continue;
+                float diffuse = max(dot(normal, delta / distance), 0.0);
+                float falloff = pow(max(0.0, 1.0 - distance / radius), 2.0)
+                    / (1.0 + distance * distance / max(1.0, radius * radius * 0.0625));
+                if (diffuse > 0.01) amount += ChannelLight[i].w * diffuse * falloff
+                    * visibility(surface + normal * 0.08, ChannelLight[i].xyz);
+            }
+            vec3 scene = texture(Sampler0, texCoord).rgb;
+            // Scene is already tone mapped: never claim this estimates material albedo or HDR radiance.
+            illumination = (scene + vec3(0.025, 0.028, 0.035)) * min(3.0, amount * 12.0);
+        }
+    }
+    fragColor = vec4(effect.rgb + refracted + illumination * (1.0 - effect.a), effect.a);
 }

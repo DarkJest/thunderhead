@@ -38,6 +38,7 @@ final class EffectRenderTarget implements AutoCloseable {
 
     private int framebuffer = -1;
     private int colorTexture = -1;
+    private int depthTexture = -1;
     private int width;
     private int height;
 
@@ -47,6 +48,28 @@ final class EffectRenderTarget implements AutoCloseable {
 
     int colorTextureId() {
         return colorTexture;
+    }
+
+    int depthTextureId() { return depthTexture; }
+
+    /** Own snapshot: pack passes are free to reuse or replace their depth after the world hook. */
+    boolean captureDepth() {
+        if (borrowedPoint == -1 || width <= 0 || height <= 0) return false;
+        GL13.glActiveTexture(GL13.GL_TEXTURE2);
+        if (depthTexture == -1) {
+            depthTexture = GL11.glGenTextures();
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, depthTexture);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, org.lwjgl.opengl.GL14.GL_TEXTURE_COMPARE_MODE, GL11.GL_NONE);
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_DEPTH_COMPONENT32F, width, height, 0,
+                GL11.GL_DEPTH_COMPONENT, GL11.GL_FLOAT, (java.nio.ByteBuffer) null);
+        } else GL11.glBindTexture(GL11.GL_TEXTURE_2D, depthTexture);
+        GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, framebuffer);
+        GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
+        return true;
     }
 
     int width() {
@@ -137,6 +160,7 @@ final class EffectRenderTarget implements AutoCloseable {
     public void close() {
         if (!RenderSystem.isOnRenderThread()) return;
         detachDepth();
+        if (depthTexture > -1) { GL11.glDeleteTextures(depthTexture); depthTexture = -1; }
         if (colorTexture > -1) {
             TextureUtil.releaseTextureId(colorTexture);
             colorTexture = -1;

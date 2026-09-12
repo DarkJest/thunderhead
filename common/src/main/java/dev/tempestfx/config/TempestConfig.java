@@ -73,6 +73,8 @@ public final class TempestConfig {
     }
 
     public static final class Lighting {
+        /** Depth-reconstructed surface lighting. No promise of pack-native reflections/cloud transport. */
+        public boolean surfaceLighting = true;
         public boolean dynamicLighting = true;
         public float illuminationRadius = 28f;
         public float illuminationStrength = 1f;
@@ -114,6 +116,8 @@ public final class TempestConfig {
     }
 
     public static final class Compatibility {
+        /** Opt-in: channels enter the pack's normal lightning material, bloom and exposure pass. */
+        public boolean packNativeChannels = false;
         public RenderCompatibilityMode shaderCompatibilityMode = RenderCompatibilityMode.AUTO;
         public BloomMode bloomMode = BloomMode.AUTO;
         /** Use the bundled core shaders; falls back to vanilla programs when disabled or broken. */

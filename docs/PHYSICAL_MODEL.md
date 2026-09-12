@@ -62,6 +62,34 @@ The old four-argument StrikeOptions constructor defaults to NEGATIVE_GROUND, pre
 
 ## Shader evidence (continued)
 
+### 1.5.0-dev surface lighting limits
+
+The surface-lighting option reconstructs view-space position and screen-derived normals from a private
+snapshot of the available depth buffer. Up to four samples are selected along active channels. Their
+power follows the same integrated pulse envelope; lighting.illuminationRadius controls the influence
+radius and zero disables it. The post pass works on already tone-mapped color, so its material response
+is approximate. Eight visibility samples can only find obstacles represented in the visible depth.
+
+It does not inject light into shader-pack reflections, cloud density or exposure. Transparent-water
+and offscreen occlusion require additional integration. These missing capabilities keep full 1.5
+acceptance open. Failed isolation retains the old pool/sky-flash state rather than silently deleting it.
+
+An independent opt-in compatibility.packNativeChannels mode submits the core through Iris's lightning
+material wrapper before the pack finishes the frame. The wrapper sets/restores the pack's lightning
+entity material ID; plain RenderType.lightning did not supply that context. It is reflectively resolved
+and format-checked, with isolated fallback when the internal Iris interface is absent. This adapter is
+version-sensitive and requires an explicit test per supported Iris version. The pack controls its material,
+bloom and exposure; the late pass omits the duplicate core. This can make the channel available to
+effects a pack implements, but does not guarantee any particular reflection or cloud-lighting algorithm.
+The option defaults off and the isolated core remains available without a shader pack or after failure.
+Packs may replace input colors and alpha rather than simply grade them. In that case pack-native mode
+cannot preserve the calibrated pulse-brightness envelope; use isolated channels for timing/brightness control.
+
+Development captures: add -PtempestfxCapture to the NeoForge run with a disposable quick-play save.
+Add -PtempestfxCaptureScene=surface for a stone test plane/wall and low camera; this deliberately
+modifies only the selected disposable world. The finite harness saves screenshots and exits normally.
+Capture overhead makes reported FPS unsuitable as a benchmark. -PtempestfxCaptureFps sets the cap.
+
 1.2.1 finite captures on Radeon RX 570 with NeoForge 21.1.248:
 
 - Vanilla: run 1789238547404; examined before/strike frames 119/122. Visible channel and scene flash.

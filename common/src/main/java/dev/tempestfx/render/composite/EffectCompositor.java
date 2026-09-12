@@ -48,6 +48,7 @@ public interface EffectCompositor extends AutoCloseable {
 
     /** Last observed render path; capability alone is not evidence of a successful pass. */
     default String status() { return "direct"; }
+    default void lighting(SceneLightField field) {}
 
     /** Releases GPU resources after a long idle period. Call once per client tick. */
     void tick(boolean busy);

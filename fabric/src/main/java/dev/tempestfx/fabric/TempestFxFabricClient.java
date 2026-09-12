@@ -58,6 +58,10 @@ public final class TempestFxFabricClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client::tick);
         ClientLifecycleEvents.CLIENT_STOPPING.register(minecraft -> client.shutdown());
+        WorldRenderEvents.AFTER_ENTITIES.register(context -> {
+            if (context.matrixStack() != null) client.renderPackChannels(context.matrixStack(),
+                context.tickCounter().getGameTimeDeltaPartialTick(false));
+        });
         // LAST matches NeoForge's AFTER_WEATHER: terrain, particles and weather are already drawn.
         WorldRenderEvents.LAST.register(context -> {
             if (context.matrixStack() != null) {

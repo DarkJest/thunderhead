@@ -37,6 +37,8 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
     protected void addOptions() {
         list.addBig(cycle("realism", RealismProfile.class, config.general.profile,
             value -> config.general.profile = value));
+        list.addBig(toggle("pack_native_channels", config.compatibility.packNativeChannels,
+            value -> config.compatibility.packNativeChannels = value));
         list.addBig(cycle("preset", QualityPreset.class, config.performance.qualityPreset,
             value -> config.performance.qualityPreset = value));
 
@@ -76,6 +78,7 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
                 value -> config.camera.impulseStrength = value),
             toggle("dynamic_lighting", config.lighting.dynamicLighting,
                 value -> config.lighting.dynamicLighting = value),
+            toggle("surface_lighting", config.lighting.surfaceLighting, value -> config.lighting.surfaceLighting = value),
             toggle("world_flash", config.lighting.worldFlash, value -> config.lighting.worldFlash = value));
 
         list.addSmall(

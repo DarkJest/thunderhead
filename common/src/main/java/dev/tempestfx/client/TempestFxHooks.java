@@ -46,7 +46,7 @@ public final class TempestFxHooks {
      */
     public static boolean drawsOwnLightning() {
         TempestFxClient current = client;
-        return current != null && current.config().general.enabled;
+        return current != null && current.drawsOwnLightning();
     }
 
     /**

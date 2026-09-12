@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.5.0-dev (incomplete milestone)
+
+- Experimental depth-based illumination of visible surfaces from a bounded set of channel samples,
+  using the flash's exposure, reconstructed normals and limited screen-space visibility checks.
+- Preserve legacy illumination state when isolation fails, including conservative shader-pack paths;
+  retain the configured light radius and its zero/off behavior.
+- Snapshot depth before the pack can reuse it, isolate sampler bindings and preserve OpenGL 3.2 support.
+- Native programs follow resource reloads. Thin realistic channels retain a stable pixel footprint.
+- True vanilla lightning entities retain their renderer if custom programs are unavailable under a pack.
+- Optional Iris material adapter is experimental and off by default: tested Complementary materials
+  replace input intensity and color, so native mode is not approved for realistic pulse presentation.
+
+Full cloud transport, offscreen shadows, reflections and pack exposure integration are not implemented.
+This development milestone is not a finished 2.0 release.
+
 ## 1.4.0 (development)
 
 - Add negative/positive cloud-to-ground, intracloud and intercloud categories to the optional API;

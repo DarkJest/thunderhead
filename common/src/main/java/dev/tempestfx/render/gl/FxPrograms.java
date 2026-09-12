@@ -50,6 +50,7 @@ public final class FxPrograms implements AutoCloseable {
     private final Map<Kind, FxProgram> programs = new EnumMap<>(Kind.class);
     private boolean enabled = true;
     private boolean failed;
+    private long resourceRevision = -1;
 
     /**
      * Turned off by {@code compatibility.customShaders}, which means "do not use the mod's own
@@ -74,7 +75,7 @@ public final class FxPrograms implements AutoCloseable {
 
     /** Allows another compilation attempt; called on level change. */
     public void reload() {
-        if (!failed) return;
+        close();
         failed = false;
     }
 
@@ -87,6 +88,12 @@ public final class FxPrograms implements AutoCloseable {
 
     private boolean ensureCompiled() {
         if (!enabled) return false;
+        if (!RenderSystem.isOnRenderThread()) return false;
+        long revision = dev.tempestfx.render.TempestShaders.resourceRevision();
+        if (revision != resourceRevision) {
+            reload();
+            resourceRevision = revision;
+        }
         if (!programs.isEmpty()) return true;
         if (failed || !RenderSystem.isOnRenderThread()) return false;
         Minecraft minecraft = Minecraft.getInstance();

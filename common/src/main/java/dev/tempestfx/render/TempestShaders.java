@@ -25,6 +25,8 @@ public final class TempestShaders {
     private static ShaderInstance shockwave;
     private static ShaderInstance smoke;
     private static boolean enabled = true;
+    private static volatile long resourceRevision;
+    public static long resourceRevision() { return resourceRevision; }
     /**
      * Answers "is a third-party shader pack compositing the world right now".
      *
@@ -45,6 +47,7 @@ public final class TempestShaders {
 
     /** Installs a program by name; keeps the loader bootstraps down to one loop each. */
     public static void set(String name, ShaderInstance instance) {
+        resourceRevision++;
         switch (name) {
             case BOLT_NAME -> setBolt(instance);
             case PARTICLE_NAME -> setParticle(instance);

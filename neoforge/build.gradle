@@ -21,6 +21,9 @@ neoForge {
             if (project.hasProperty('tempestfxCapture')) {
                 systemProperty 'tempestfx.capture', 'true'
                 systemProperty 'tempestfx.smokeStrike', 'false'
+                if (project.hasProperty('tempestfxCaptureScene')) {
+                    systemProperty 'tempestfx.captureScene', project.property('tempestfxCaptureScene').toString()
+                }
                 if (project.hasProperty('tempestfxCaptureFps')) {
                     systemProperty 'tempestfx.captureFps', project.property('tempestfxCaptureFps').toString()
                 }

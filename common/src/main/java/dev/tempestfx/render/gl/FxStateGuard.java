@@ -12,6 +12,8 @@ import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.GL33;
+import org.lwjgl.opengl.GL;
 
 /**
  * Everything the mod's own passes are allowed to touch, remembered and put back.
@@ -30,15 +32,17 @@ import org.lwjgl.opengl.GL30;
  */
 public final class FxStateGuard {
     /** The texture units the mod's passes bind samplers to. */
-    private static final int UNITS = 2;
+    private static final int UNITS = 3;
 
     private final ByteBuffer booleans = BufferUtils.createByteBuffer(4);
     private final IntBuffer viewport = BufferUtils.createIntBuffer(4);
     private final FloatBuffer clearColor = BufferUtils.createFloatBuffer(4);
     private final int[] textures = new int[UNITS];
+    private final int[] samplers = new int[UNITS];
 
     private boolean held;
     private boolean stateHeld;
+    private boolean samplerObjects;
 
     private int drawFramebuffer;
     private int readFramebuffer;
@@ -117,9 +121,11 @@ public final class FxStateGuard {
         maskAlpha = booleans.get(3) != 0;
         activeTexture = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
         program = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
+        samplerObjects = supportsSamplers();
         for (int unit = 0; unit < UNITS; unit++) {
             GL13.glActiveTexture(GL13.GL_TEXTURE0 + unit);
             textures[unit] = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+            if (samplerObjects) samplers[unit] = GL11.glGetInteger(GL33.GL_SAMPLER_BINDING);
         }
         GL13.glActiveTexture(activeTexture);
     }
@@ -141,6 +147,7 @@ public final class FxStateGuard {
         for (int unit = 0; unit < UNITS; unit++) {
             GL13.glActiveTexture(GL13.GL_TEXTURE0 + unit);
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, textures[unit]);
+            if (samplerObjects) GL33.glBindSampler(unit, samplers[unit]);
         }
         GL13.glActiveTexture(activeTexture);
         GL20.glUseProgram(program);
@@ -162,5 +169,14 @@ public final class FxStateGuard {
         } else {
             GL11.glDisable(capability);
         }
+    }
+
+    private static boolean supportsSamplers() {
+        return GL.getCapabilities().OpenGL33 || GL.getCapabilities().GL_ARB_sampler_objects;
+    }
+
+    /** Shader packs may leave shadow/nearest samplers bound; use each effect texture's own filtering. */
+    public static void useTextureFiltering(int unit) {
+        if (supportsSamplers()) GL33.glBindSampler(unit, 0);
     }
 }
