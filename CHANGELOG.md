@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.4.0 (development)
+
+- Add negative/positive cloud-to-ground, intracloud and intercloud categories to the optional API;
+  the previous StrikeOptions constructor remains available. Vanilla lightning remains ground lightning.
+- Realistic channels use a fixed canonical backbone with independently seeded attached forks.
+  LOD retains backbone vertices and endpoints; budgets no longer create disconnected canopy trees.
+- Add an absolute configurable fallback cloud base instead of tying every realistic origin to ground height.
+- Cloud events omit ground-contact particles, rings, discharges, imprints and surface light pools.
+- Typed visual commands: `/tempestfx type negative_ground|positive_ground|intracloud|intercloud [seed]`.
+- Distinct approximate timing for positive and cloud events, cloud glow from the actual trunk extent,
+  neutral realistic tint, and single application of event intensity.
+
 ## 1.3.0 (development)
 
 - One immutable FlashTimeline drives channel brightness and contact impulses. Repeated strokes share

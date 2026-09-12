@@ -160,7 +160,15 @@ public final class TempestFxFabricClient implements ClientModInitializer {
                 return 1;
             });
 
+        var typed = ClientCommandManager.literal("type");
+        for (var kind : dev.tempestfx.api.LightningKind.values()) {
+            typed.then(ClientCommandManager.literal(kind.name().toLowerCase(java.util.Locale.ROOT))
+                .executes(context -> { client.debugTypedStrike(kind, 12345); return 1; })
+                .then(ClientCommandManager.argument("seed", LongArgumentType.longArg())
+                    .executes(context -> { client.debugTypedStrike(kind, LongArgumentType.getLong(context, "seed")); return 1; })));
+        }
         dispatcher.register(ClientCommandManager.literal("tempestfx")
+            .then(typed)
             .then(settings)
             .then(reload)
             .then(strike)

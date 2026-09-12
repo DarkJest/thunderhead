@@ -7,6 +7,7 @@ import dev.tempestfx.lightning.LightningGenerationConfig;
 import dev.tempestfx.lightning.LightningGeometryStrategy;
 import dev.tempestfx.lightning.LightningLod;
 import dev.tempestfx.lightning.FlashTimeline;
+import dev.tempestfx.lightning.DischargeGeometryStrategy;
 import dev.tempestfx.math.StrikeSeed;
 import dev.tempestfx.math.Vec3d;
 
@@ -20,13 +21,14 @@ public final class LightningEffectFactory {
     private static final double REFERENCE_HEIGHT = 110;
 
     private final LightningGeometryStrategy geometryStrategy;
+    private final DischargeGeometryStrategy dischargeGeometry = new DischargeGeometryStrategy();
 
     public LightningEffectFactory(LightningGeometryStrategy geometryStrategy) {
         this.geometryStrategy = geometryStrategy;
     }
 
     public ActiveLightningEffect create(LightningStrikeFxEvent event, LightningLod lod, TempestConfig config) {
-        return create(event, lod, config, FlashTimeline.plan(event.seed(), config.effectiveReturnStrokes(), config.realistic()));
+        return create(event, lod, config, FlashTimeline.plan(event.seed(), config.effectiveReturnStrokes(), config.realistic(), event.kind()));
     }
 
     public ActiveLightningEffect create(LightningStrikeFxEvent event, LightningLod lod, TempestConfig config, FlashTimeline timeline) {
@@ -37,7 +39,8 @@ public final class LightningEffectFactory {
         // the channel hangs from the cloud base with a seeded lean, which is every strike the mod
         // raises itself. Displacement is then scaled by the channel that actually exists, not by the
         // one that would have been derived, or a short slanted bolt wanders like a tall one.
-        Vec3d start = event.origin() != null ? event.origin() : derivedOrigin(event, seed, lod, scale);
+        Vec3d start = event.origin() != null ? event.origin() : config.realistic() || !event.kind().contactsGround()
+            ? realisticOrigin(event, config, seed, scale) : derivedOrigin(event, seed, lod, scale);
         double height = Math.max(1, start.distanceTo(event.position()));
 
         LightningGenerationConfig base = LightningGenerationConfig.high();
@@ -55,10 +58,22 @@ public final class LightningEffectFactory {
             .start(start)
             .end(event.position())
             .seed(seed)
-            .intensity(event.intensity())
+            .intensity(1f)
             .config(selected)
             .build();
-        return new ActiveLightningEffect(event, geometryStrategy.generate(bolt), lod, timeline);
+        return new ActiveLightningEffect(event, config.realistic()
+            ? dischargeGeometry.generate(bolt, event.kind(), lod) : geometryStrategy.generate(bolt), lod, timeline);
+    }
+
+    private static Vec3d realisticOrigin(LightningStrikeFxEvent event, TempestConfig config, long seed, float scale) {
+        if (!event.kind().contactsGround()) {
+            double span = event.kind() == dev.tempestfx.api.LightningKind.INTERCLOUD ? 180 : 85;
+            return event.position().add(-span * scale, 12 * StrikeSeed.signed(seed, 13), 35 * scale);
+        }
+        double y = Math.max(config.lightning.cloudBaseY, event.position().y() + 32);
+        double height = (y - event.position().y()) * scale;
+        return event.position().add(StrikeSeed.signed(seed, 11) * height * .25, height,
+            StrikeSeed.signed(seed, 12) * height * .25);
     }
 
     /** Where a bolt leaves the cloud when the caller did not say: up, and leaning by its seed. */

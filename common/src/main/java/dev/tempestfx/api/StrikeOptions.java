@@ -17,11 +17,16 @@ import java.util.Set;
  * @param particles which debris families may be emitted, or {@code null} for all of them
  */
 public record StrikeOptions(LightningStyle style, Vec3d origin, ThunderOptions thunder,
-                            Set<ParticleFamily> particles) {
+                            Set<ParticleFamily> particles, LightningKind kind) {
+    /** Preserve the 1.x constructor for existing integrations. */
+    public StrikeOptions(LightningStyle style, Vec3d origin, ThunderOptions thunder, Set<ParticleFamily> particles) {
+        this(style, origin, thunder, particles, LightningKind.NEGATIVE_GROUND);
+    }
     /** Nothing overridden. Every strike the mod raises itself carries this. */
     public static final StrikeOptions DEFAULT = new StrikeOptions(null, null, null, null);
 
     public StrikeOptions {
+        if (kind == null) kind = LightningKind.NEGATIVE_GROUND;
         if (origin != null && !origin.finite()) origin = null;
         // Defensive copy: a caller must not be able to change what a strike does after raising it,
         // and the renderer reads this every frame the bolt is alive.
@@ -41,17 +46,19 @@ public record StrikeOptions(LightningStyle style, Vec3d origin, ThunderOptions t
         private Vec3d origin;
         private ThunderOptions thunder;
         private Set<ParticleFamily> particles;
+        private LightningKind kind = LightningKind.NEGATIVE_GROUND;
 
         public Builder style(LightningStyle value) { style = value; return this; }
         public Builder origin(Vec3d value) { origin = value; return this; }
         public Builder thunder(ThunderOptions value) { thunder = value; return this; }
         public Builder particles(Set<ParticleFamily> value) { particles = value; return this; }
+        public Builder kind(LightningKind value) { kind = value; return this; }
 
         public Builder particles(ParticleFamily... value) {
             particles = value == null || value.length == 0 ? null : Set.of(value);
             return this;
         }
 
-        public StrikeOptions build() { return new StrikeOptions(style, origin, thunder, particles); }
+        public StrikeOptions build() { return new StrikeOptions(style, origin, thunder, particles, kind); }
     }
 }

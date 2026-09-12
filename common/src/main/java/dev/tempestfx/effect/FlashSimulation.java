@@ -31,7 +31,7 @@ public final class FlashSimulation {
             var event = arrivals.removeFirst();
             if (!config.general.enabled) continue;
             var timeline = FlashTimeline.plan(event.seed(), event.primary() ? config.effectiveReturnStrokes() : 0,
-                config.realistic());
+                config.realistic(), event.kind());
             effects.onFlash(event, camera, config, timeline);
             contacts.add(event, timeline);
             accepted.accept(event);

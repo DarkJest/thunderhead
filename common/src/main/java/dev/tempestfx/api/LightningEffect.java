@@ -51,6 +51,7 @@ public record LightningEffect(Vec3d position, long seed, float intensity,
         public Builder environment(LightningEnvironment value) { environment = value; return this; }
         public Builder target(StrikeTarget value) { target = value; return this; }
         public Builder style(LightningStyle value) { options.style(value); return this; }
+        public Builder kind(LightningKind value) { options.kind(value); return this; }
 
         /** Where the channel starts. Fixes the bolt's angle and length outright. */
         public Builder origin(Vec3d value) { options.origin(value); return this; }

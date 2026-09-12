@@ -38,7 +38,7 @@ public final class LightningRenderer {
         double distance = camera.distanceTo(effect.event().position());
         // Under a shader pack the floor carries the thin end of the branch ladder, so it is raised
         // there and given an absolute minimum for branches close enough that distance alone is small.
-        double minWidth = Math.max(distance * MIN_WIDTH_PER_BLOCK * profile.minWidthScale(),
+        double minWidth = Math.max(distance * MIN_WIDTH_PER_BLOCK * profile.minWidthScale() * (config.realistic() ? .4 : 1),
             profile.drawsWideGlow() ? 0 : NEAR_WIDTH_FLOOR);
         // The player's settings for a strike of the mod's own; an integration's style for one it
         // asked for. Brightness and flicker are not in here - those are accessibility, and they are
@@ -46,7 +46,7 @@ public final class LightningRenderer {
         LightningLook look = LightningLook.resolve(config, effect.event().style());
         double thickness = look.thickness() * profile.widthScale();
         float glow = config.lightning.glowStrength * emissiveBoost;
-        float tint = look.coldTint();
+        float tint = look.coldTint() * (config.realistic() ? .3f : 1f);
 
         // Cold outer halo, then a brighter inner sheath, then the near-white conducting core. A
         // style may name the two colours outright; otherwise they come off the cold-tint ramp, which
@@ -101,7 +101,10 @@ public final class LightningRenderer {
         var segments = effect.segments();
         if (segments.isEmpty()) return;
         Vec3d top = segments.getFirst().start();
-        double height = Math.max(8, top.y() - segments.getLast().end().y());
+        var trunk = effect.geometry().branches().getFirst().segments();
+        Vec3d end = trunk.getLast().end();
+        double height = Math.max(8, top.distanceTo(end));
+        if (!effect.event().kind().contactsGround()) top = top.lerp(end, .5);
         RibbonRenderer.cameraQuad(pose, consumer, top.x(), top.y(), top.z(),
             camera.x(), camera.y(), camera.z(), height * 0.55,
             0.6f, 0.72f, 1f, Math.min(0.5f, brightness * 0.3f));

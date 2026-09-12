@@ -3,6 +3,7 @@ package dev.tempestfx.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.tempestfx.TempestFx;
 import dev.tempestfx.api.LightningEffect;
+import dev.tempestfx.api.LightningKind;
 import dev.tempestfx.api.LightningEnvironment;
 import dev.tempestfx.api.LightningStrikeFxEvent;
 import dev.tempestfx.api.ParticleFamily;
@@ -184,12 +185,14 @@ public final class TempestFxClient {
     private void onFlashContact(LightningStrikeFxEvent event) {
         if (!config.general.enabled || currentLevel == null) return;
         if (config.general.reducedFlashing && !event.primary()) return;
-        effects.onContact(event, platform.cameraPosition(), config);
-        emitImpactParticles(event);
+        if (event.kind().contactsGround()) {
+            effects.onContact(event, platform.cameraPosition(), config);
+            emitImpactParticles(event);
+            lights.onStrike(event, config);
+        }
         screenFlash.onStrike(event, platform.cameraPosition(), config);
-        lights.onStrike(event, config);
         worldFlash.onStrike(event, platform.cameraPosition(), config);
-        if (!config.realistic()) {
+        if (!config.realistic() && event.kind().contactsGround()) {
             cameraImpulse.onStrike(event, platform.cameraPosition(), config);
             if (event.primary()) { startEntityDischarges(event); leaveAshImprint(event); }
         }
@@ -616,6 +619,26 @@ public final class TempestFxClient {
     public void debugStrikeAt(double x, double y, double z, Long fixedSeed) {
         if (currentLevel == null) return;
         triggerDebugStrike(new Vec3d(x, y, z), "auto", fixedSeed);
+    }
+
+    /** Visual-only typed discharge, with cloud events entirely above the surface. */
+    public void debugTypedStrike(LightningKind kind, long seed) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (currentLevel == null || minecraft.player == null) return;
+        Vec3d camera = platform.cameraPosition();
+        double yaw = Math.toRadians(minecraft.player.getYRot());
+        Vec3d center = camera.add(-Math.sin(yaw) * 100, 0, Math.cos(yaw) * 100);
+        Vec3d end;
+        Vec3d origin = null;
+        if (kind.contactsGround()) end = snapToSurface(currentLevel, center);
+        else {
+            double height = Math.max(config.lightning.cloudBaseY, camera.y() + 40);
+            double span = kind == LightningKind.INTERCLOUD ? 180 : 85;
+            origin = new Vec3d(center.x() - span * .5, height, center.z());
+            end = new Vec3d(center.x() + span * .5, height + (kind == LightningKind.INTERCLOUD ? 12 : -22), center.z() + 25);
+        }
+        TempestFxApi.triggerLightning(LightningEffect.builder().position(end).origin(origin)
+            .kind(kind).seed(seed).environment(environmentAt(currentLevel, end)).build());
     }
 
     private void triggerDebugStrike(Vec3d point, String environmentName, Long fixedSeed) {

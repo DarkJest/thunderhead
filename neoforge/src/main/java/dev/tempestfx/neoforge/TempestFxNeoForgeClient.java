@@ -182,7 +182,15 @@ public final class TempestFxNeoForgeClient {
                 return 1;
             });
 
+        var typed = Commands.literal("type");
+        for (var kind : dev.tempestfx.api.LightningKind.values()) {
+            typed.then(Commands.literal(kind.name().toLowerCase(java.util.Locale.ROOT))
+                .executes(context -> { client.debugTypedStrike(kind, 12345); return 1; })
+                .then(Commands.argument("seed", LongArgumentType.longArg())
+                    .executes(context -> { client.debugTypedStrike(kind, LongArgumentType.getLong(context, "seed")); return 1; })));
+        }
         event.getDispatcher().register(Commands.literal("tempestfx")
+            .then(typed)
             .then(settings)
             .then(reload)
             .then(strike)

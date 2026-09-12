@@ -24,9 +24,10 @@ final class DevelopmentCapture {
             minecraft.player.connection.sendCommand("weather clear");
             client.config().general.debug = true;
         }
-        if (ticks == 120 || ticks == 180 || ticks == 240) {
+        if (ticks == 120 || ticks == 180 || ticks == 240 || ticks == 300) {
             burstFrames = 0;
-            client.debugStrike(100, "auto", 12345L);
+            var kind = dev.tempestfx.api.LightningKind.values()[(ticks - 120) / 60];
+            client.debugTypedStrike(kind, 12345L);
             TempestFx.log().info("QA strike run={} tick={} seed=12345", run, ticks);
         }
         if (ticks == 400) {
@@ -36,9 +37,9 @@ final class DevelopmentCapture {
     }
 
     void frame(Minecraft minecraft, String compositorStatus) {
-        if (!enabled || ticks < 119 || ticks > 250) return;
+        if (!enabled || ticks < 119 || ticks > 310) return;
         boolean burst = (ticks >= 120 && ticks <= 125) || (ticks >= 180 && ticks <= 185)
-            || (ticks >= 240 && ticks <= 245);
+            || (ticks >= 240 && ticks <= 245) || (ticks >= 300 && ticks <= 305);
         if (!burst && (ticks == capturedTick || ticks != 119)) return;
         if (burst && burstFrames >= 36) return;
         capturedTick = ticks;

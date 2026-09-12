@@ -68,7 +68,7 @@ public final class WorldFxRenderer {
                 }
             });
         }
-        if (!scene.shockwaves().isEmpty() || !scene.distantBolts().isEmpty()) {
+        if (!scene.shockwaves().isEmpty() || !scene.distantBolts().isEmpty() || !scene.lightning().isEmpty()) {
             if (profile.drawsWideGlow()) pass(target, FxPass.ATMOSPHERE, consumer -> {
                 for (ShockwaveEffect effect : scene.shockwaves()) {
                     shockwaveRenderer.renderHaze(effect, pose, consumer, camera, partialTick);
@@ -76,6 +76,11 @@ public final class WorldFxRenderer {
                 // One quad per distant channel: the cloud it came out of lighting up behind it.
                 for (ActiveLightningEffect effect : scene.distantBolts()) {
                     lightningRenderer.renderCloudGlow(effect, pose, consumer, camera, partialTick, config);
+                }
+                for (ActiveLightningEffect effect : scene.lightning()) {
+                    if (!effect.event().kind().contactsGround()) {
+                        lightningRenderer.renderCloudGlow(effect, pose, consumer, camera, partialTick, config);
+                    }
                 }
             });
         }

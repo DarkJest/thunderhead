@@ -34,3 +34,18 @@
   both runs exited with worlds saved. Capture overhead means these are not performance benchmarks.
 - 1.3 implementation checkpoint complete; extended physical calibration, complete shader matrix and full
   roadmap acceptance remain ongoing. Next is 1.4 channel geometry and distinct discharge kinds.
+
+## 1.4.0 — implementation, review pending
+
+- Canonical channel/backbone generation, retained LOD vertices, attached forks and hard budgets.
+- Four API categories with distinct envelopes and explicit visual commands on both loaders.
+- Ground aftermath guarded by category; cloud source fallback documented as an approximation.
+- buildAll passed 169 tests. Reviewer review_1_4_0 is checking the changes; ARTShade capture in progress.
+- Reviewer found cloud categories only differed in debug placement, and cinematic fallback gave cloud
+  kinds vertical origins. Moved kind-specific profiles into generation/timing and preserved horizontal
+  cloud origins in both presentation modes. Added API factory regressions; buildAll passes 171 tests.
+- Same reviewer rechecked: no remaining blocking findings. ARTShade run 1789239751700 and final
+  Complementary run 1789239959670 completed with captures and normal save/exit; examined cloud channels.
+- 1.4 implementation checkpoint complete. It remains an approximate geometric model, not a field solver.
+- 1.5 investigation: bundled Complementary declares lightningBoltPosition but does not use it;
+  ARTShade does not reference it. Exposing that uniform alone cannot provide their missing lighting.

@@ -1,6 +1,7 @@
 package dev.tempestfx.lightning;
 
 import dev.tempestfx.math.StrikeSeed;
+import dev.tempestfx.api.LightningKind;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,6 +45,19 @@ public record FlashTimeline(long seed, float leaderTicks, float decayTicks, List
             pulses.add(new Pulse(index, time, strength));
         }
         return new FlashTimeline(seed, leader, realistic ? .22f : .7f, pulses);
+    }
+
+    public static FlashTimeline plan(long seed, int maximumReturns, boolean realistic, LightningKind kind) {
+        if (!realistic || kind == LightningKind.NEGATIVE_GROUND) return plan(seed, maximumReturns, realistic);
+        int returns = kind == LightningKind.POSITIVE_GROUND
+            ? (StrikeSeed.unit(seed, 0x901) < .2 ? Math.min(1, maximumReturns) : 0) : maximumReturns;
+        FlashTimeline base = plan(seed, returns, true);
+        float leader = switch (kind) { case POSITIVE_GROUND -> .6f; case INTRACLOUD -> 1.4f; default -> 2f; };
+        float decay = switch (kind) { case POSITIVE_GROUND -> .55f; case INTRACLOUD -> .8f; default -> .5f; };
+        float intervalScale = kind == LightningKind.INTERCLOUD ? 1.4f : 1f;
+        var pulses = base.pulses().stream().map(p -> new Pulse(p.index(),
+            (p.atTicks() - base.leaderTicks()) * intervalScale + leader, p.strength())).toList();
+        return new FlashTimeline(seed, leader, decay, pulses);
     }
 
     public float durationTicks() { return pulses.getLast().atTicks() + decayTicks * 8 + 1; }

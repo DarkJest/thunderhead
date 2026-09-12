@@ -26,7 +26,7 @@ public final class EffectManager {
     public EffectManager(LightningEffectFactory factory) { this.factory = factory; }
 
     public void onStrike(LightningStrikeFxEvent event, Vec3d camera, TempestConfig config) {
-        onFlash(event, camera, config, FlashTimeline.plan(event.seed(), config.effectiveReturnStrokes(), config.realistic()));
+        onFlash(event, camera, config, FlashTimeline.plan(event.seed(), config.effectiveReturnStrokes(), config.realistic(), event.kind()));
     }
 
     public void onFlash(LightningStrikeFxEvent event, Vec3d camera, TempestConfig config, FlashTimeline timeline) {
@@ -40,6 +40,7 @@ public final class EffectManager {
     }
 
     public void onContact(LightningStrikeFxEvent event, Vec3d camera, TempestConfig config) {
+        if (!event.kind().contactsGround()) return;
         if (config.impact.shockwave && !config.realistic() && camera.distanceTo(event.position()) < 256) {
             int limit = config.performance.maxConcurrentEffects;
             while (shockwaves.size() >= limit) shockwaves.removeFirst();

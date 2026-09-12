@@ -37,7 +37,7 @@ public final class ActiveLightningEffect {
         for (LightningSegment segment : geometry.segments()) if (segment.branchDepth() == 0) length += segment.length();
         // One block = one metre, return front 100 million m/s. Too fast to animate as a slow beam;
         // the exposure integral retains its direction even when the whole front fits inside a frame.
-        this.returnTravelTicks = (float) (length / 100_000_000.0 * 20);
+        this.returnTravelTicks = event.kind().contactsGround() ? (float) (length / 100_000_000.0 * 20) : 0;
     }
 
     public void tick() { age++; }
@@ -77,7 +77,7 @@ public final class ActiveLightningEffect {
     public boolean segmentVisible(LightningSegment segment, float partialTick) {
         float time = time(partialTick);
         // Short upward connecting leader meets the downward tree near ground contact.
-        if (segment.branchDepth() == 0 && segment.alongStart() >= .97
+        if (event.kind().contactsGround() && segment.branchDepth() == 0 && segment.alongStart() >= .97
             && time >= timeline.leaderTicks() * .7f) return true;
         if (segment.alongStart() > timeline.propagation(time)) return false;
         return true;

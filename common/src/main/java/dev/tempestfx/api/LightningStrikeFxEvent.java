@@ -48,6 +48,7 @@ public record LightningStrikeFxEvent(Vec3d position, long seed, float intensity,
     public LightningStyle style() { return options.style(); }
 
     public Vec3d origin() { return options.origin(); }
+    public LightningKind kind() { return options.kind(); }
 
     /** True when the bolt came down on a player rather than terrain. */
     public boolean directPlayerHit() { return target.present() && target.player(); }

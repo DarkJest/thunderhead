@@ -39,7 +39,28 @@ Realistic currently excludes impact rings, movement-triggered entity arcs, playe
 and audio-triggered distant walls. Server ball-lightning settings remain separate and must be disabled
 by the operator if experimental gameplay is unwanted; client presentation cannot remove a real entity.
 
-## Shader evidence
+## 1.4 — channel geometry and explicit categories
+
+Realistic rendering generates a fixed 128-segment canonical backbone. Lower detail retains a subset
+of its vertices; forks use independent seeds and can only attach to retained vertices. Hard budgets
+always preserve the first and last backbone points. This is a stochastic geometric model, not a
+simulation of air breakdown or a solution of Maxwell's equations.
+
+The visible core half-width is 0.055 blocks before user scaling and a screen-visibility floor. It is
+not a measurement of plasma radius. Geometry carries relative branch brightness; event intensity is
+applied once at rendering. The fallback cloud base is an absolute world Y=192, configurable as
+lightning.cloudBaseY; terrain above it raises the fallback source to retain at least 32 blocks of height.
+Shader-pack cloud meshes can differ: this fallback does not claim to locate their actual density field.
+
+Kinds are explicit API inputs. Vanilla bolt entities remain NEGATIVE_GROUND. POSITIVE_GROUND uses a
+longer illustrative decay and mostly single-pulse mixture; INTRACLOUD/INTERCLOUD use cloud endpoints,
+a longer envelope, and no ground aftermath. Their timing distributions are still game tuning. Natural
+server selection and storm-wide category rates belong to the later server simulation stage.
+
+Use `/tempestfx type intracloud 12345` (or intercloud, positive_ground, negative_ground) for visual tests.
+The old four-argument StrikeOptions constructor defaults to NEGATIVE_GROUND, preserving existing callers.
+
+## Shader evidence (continued)
 
 1.2.1 finite captures on Radeon RX 570 with NeoForge 21.1.248:
 

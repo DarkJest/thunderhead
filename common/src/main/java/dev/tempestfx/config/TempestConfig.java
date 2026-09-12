@@ -44,6 +44,8 @@ public final class TempestConfig {
         public float scale = 1f;
         /** How far the near-horizontal cloud-base channels reach; 0 removes them entirely. */
         public float skySpread = 1f;
+        /** Absolute world-space cloud layer used when the renderer supplies no cloud geometry. */
+        public float cloudBaseY = 192f;
     }
 
     public static final class Impact {
@@ -147,6 +149,7 @@ public final class TempestConfig {
         lightning.returnStrokes = FxMath.clamp(lightning.returnStrokes, 0, 4);
         lightning.scale = FxMath.clamp(lightning.scale, 0.4f, 2.5f);
         lightning.skySpread = FxMath.clamp(lightning.skySpread, 0f, 3f);
+        lightning.cloudBaseY = FxMath.clamp(lightning.cloudBaseY, -64f, 2048f);
 
         impact.shockwaveStrength = FxMath.clamp(impact.shockwaveStrength, 0f, 3f);
         impact.airDistortionStrength = FxMath.clamp(impact.airDistortionStrength, 0f, 2f);
