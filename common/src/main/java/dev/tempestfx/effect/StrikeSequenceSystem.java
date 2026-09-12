@@ -17,9 +17,9 @@ public final class StrikeSequenceSystem {
     private final List<Pending> pending = new ArrayList<>();
 
     public void onStrike(LightningStrikeFxEvent event, TempestConfig config) {
-        if (!event.primary() || config.lightning.returnStrokes <= 0) return;
+        if (!event.primary() || config.effectiveReturnStrokes() <= 0) return;
         for (StrikeSequence.ReturnStroke stroke
-            : StrikeSequence.plan(event.seed(), event.intensity(), config.lightning.returnStrokes)) {
+            : StrikeSequence.plan(event.seed(), event.intensity(), config.effectiveReturnStrokes())) {
             if (pending.size() >= MAX_PENDING) return;
             Vec3d position = event.position().add(stroke.offsetX(), 0, stroke.offsetZ());
             pending.add(new Pending(stroke.delayTicks(), position, stroke.seed(), stroke.intensity(), stroke.index()));

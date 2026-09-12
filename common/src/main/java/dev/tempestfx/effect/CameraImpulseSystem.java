@@ -28,7 +28,7 @@ public final class CameraImpulseSystem {
     public void onStrike(LightningStrikeFxEvent event, Vec3d camera, TempestConfig config) {
         if (!config.camera.cameraImpulse || config.camera.impulseStrength <= 0) return;
         double amount = FxMath.distanceFalloff(camera.distanceTo(event.position()), 3, 64)
-            * config.camera.impulseStrength * event.intensity();
+            * config.effectiveImpulseStrength() * event.intensity();
         if (amount <= 0) return;
         double bearing = StrikeSeed.unit(event.seed(), 0x5ca1) * Math.PI * 2;
         pitchAxis = Math.sin(bearing) * 0.6 + 0.4;
@@ -47,6 +47,8 @@ public final class CameraImpulseSystem {
     }
 
     public boolean active() { return displacement != 0 || velocity != 0; }
+
+    public void clear() { displacement = previousDisplacement = velocity = 0; }
 
     public float pitchOffset(float partialTick) {
         return (float) (interpolated(partialTick) * pitchAxis) * DEGREES_PER_UNIT;

@@ -60,7 +60,9 @@ public final class TempestFxServer {
             if (!settings.affectMobs && !(target instanceof Player)) continue;
             Vec3 at = target.position();
             // Vanilla's own box, not a sphere approximating it: anything inside is vanilla's to hurt.
-            if (NearMissDamage.insideVanillaBox(at.x - position.x, at.y - position.y, at.z - position.z)) {
+            AABB bounds = target.getBoundingBox();
+            if (NearMissDamage.intersectsVanillaBox(bounds.minX - position.x, bounds.minY - position.y,
+                bounds.minZ - position.z, bounds.maxX - position.x, bounds.maxY - position.y, bounds.maxZ - position.z)) {
                 continue;
             }
             double distance = at.distanceTo(position);

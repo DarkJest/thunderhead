@@ -3,10 +3,13 @@ package dev.tempestfx.render.gl;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.nio.FloatBuffer;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
+import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 
@@ -30,6 +33,8 @@ public final class FxStateGuard {
     private static final int UNITS = 2;
 
     private final ByteBuffer booleans = BufferUtils.createByteBuffer(4);
+    private final IntBuffer viewport = BufferUtils.createIntBuffer(4);
+    private final FloatBuffer clearColor = BufferUtils.createFloatBuffer(4);
     private final int[] textures = new int[UNITS];
 
     private boolean held;
@@ -58,6 +63,9 @@ public final class FxStateGuard {
     private int activeTexture;
     private int program;
     private int vertexArray;
+    private int arrayBuffer;
+    private int blendEquationRgb;
+    private int blendEquationAlpha;
 
     /** Whether a capture is currently open, so an unbalanced call cannot corrupt the snapshot. */
     public boolean held() {
@@ -73,13 +81,17 @@ public final class FxStateGuard {
      */
     public void capture(boolean withState) {
         RenderSystem.assertOnRenderThread();
+        if (held) throw new IllegalStateException("Effect state guard already captured");
         drawFramebuffer = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
         readFramebuffer = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-        viewportX = GlStateManager.Viewport.x();
-        viewportY = GlStateManager.Viewport.y();
-        viewportWidth = GlStateManager.Viewport.width();
-        viewportHeight = GlStateManager.Viewport.height();
+        viewport.clear();
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
+        viewportX = viewport.get(0);
+        viewportY = viewport.get(1);
+        viewportWidth = viewport.get(2);
+        viewportHeight = viewport.get(3);
         vertexArray = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+        arrayBuffer = GL11.glGetInteger(GL15.GL_ARRAY_BUFFER_BINDING);
         held = true;
         stateHeld = withState;
         if (!withState) return;
@@ -88,6 +100,10 @@ public final class FxStateGuard {
         blendDstRgb = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
         blendSrcAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
         blendDstAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
+        blendEquationRgb = GL11.glGetInteger(GL20.GL_BLEND_EQUATION_RGB);
+        blendEquationAlpha = GL11.glGetInteger(GL20.GL_BLEND_EQUATION_ALPHA);
+        clearColor.clear();
+        GL11.glGetFloatv(GL11.GL_COLOR_CLEAR_VALUE, clearColor);
         depthTest = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
         depthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
         depthWrite = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
@@ -116,6 +132,7 @@ public final class FxStateGuard {
         if (!held) return;
         held = false;
         GL30.glBindVertexArray(vertexArray);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, arrayBuffer);
         GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawFramebuffer);
         GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readFramebuffer);
         GL11.glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
@@ -129,6 +146,8 @@ public final class FxStateGuard {
         GL20.glUseProgram(program);
         GL11.glColorMask(maskRed, maskGreen, maskBlue, maskAlpha);
         GL14.glBlendFuncSeparate(blendSrcRgb, blendDstRgb, blendSrcAlpha, blendDstAlpha);
+        GL20.glBlendEquationSeparate(blendEquationRgb, blendEquationAlpha);
+        GL11.glClearColor(clearColor.get(0), clearColor.get(1), clearColor.get(2), clearColor.get(3));
         toggle(GL11.GL_BLEND, blend);
         GL11.glDepthFunc(depthFunc);
         GL11.glDepthMask(depthWrite);

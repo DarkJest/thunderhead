@@ -28,7 +28,7 @@ public final class DistantBoltSystem {
 
     /** @return the channel created, or {@code null} when the feature is off or the cap is reached. */
     public ActiveLightningEffect onCue(DistantBoltCue cue, TempestConfig config) {
-        if (!config.lighting.distantBolts) return null;
+        if (!config.effectiveDistantBolts()) return null;
         if (bolts.size() >= MAX_ACTIVE) bolts.removeFirst();
 
         // Heavy forking on purpose. These read as a storm front, and a front is mostly branches:

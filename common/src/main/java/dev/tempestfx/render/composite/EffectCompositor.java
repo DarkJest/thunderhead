@@ -46,6 +46,9 @@ public interface EffectCompositor extends AutoCloseable {
     /** Whether an isolated world pass is possible at all; for the debug overlay. */
     boolean available();
 
+    /** Last observed render path; capability alone is not evidence of a successful pass. */
+    default String status() { return "direct"; }
+
     /** Releases GPU resources after a long idle period. Call once per client tick. */
     void tick(boolean busy);
 

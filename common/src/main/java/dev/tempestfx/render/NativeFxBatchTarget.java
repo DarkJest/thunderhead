@@ -14,6 +14,7 @@ import net.minecraft.resources.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
+import org.lwjgl.opengl.GL20;
 
 /**
  * Draws the mod's passes with the mod's own programs, buffers and GL state.
@@ -111,6 +112,7 @@ public final class NativeFxBatchTarget implements FxBatchTarget {
     /** Depth tested against the scene but never written, and blended per the pass description. */
     private void apply(FxPass pass, FxProgram program) {
         GL11.glEnable(GL11.GL_BLEND);
+        GL20.glBlendEquationSeparate(GL14.GL_FUNC_ADD, GL14.GL_FUNC_ADD);
         if (pass.blend() == FxPass.Blend.ADDITIVE) {
             GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO, GL11.GL_ONE);
         } else {

@@ -96,7 +96,7 @@ public final class TempestFxClient {
 
     private final FxEventBus events = new FxEventBus();
     private final EffectManager effects = new EffectManager(new LightningEffectFactory(new MidpointDisplacementStrategy()));
-    private final FxParticleSystem particles;
+    private FxParticleSystem particles;
     private final ScreenFlashSystem screenFlash = new ScreenFlashSystem();
     private final CameraImpulseSystem cameraImpulse = new CameraImpulseSystem();
     private final TransientLightSystem lights = new TransientLightSystem();
@@ -119,7 +119,7 @@ public final class TempestFxClient {
     private final VanillaFxBatchTarget vanillaTarget = new VanillaFxBatchTarget();
     private final FxStateGuard worldGuard = new FxStateGuard();
     private final AirDistortionSystem distortion = new AirDistortionSystem();
-    private final EffectCompositor compositor;
+    private EffectCompositor compositor;
     /**
      * Spheres offered by the entity dispatcher this frame, drained by the world pass.
      *
@@ -130,12 +130,13 @@ public final class TempestFxClient {
 
     private final ShaderEnvironmentDetector shaders;
     private final RenderCompatibilityMode detectedCompatibility;
-    private final BloomBackend bloomBackend;
+    private BloomBackend bloomBackend;
 
     private ClientLevel currentLevel;
     private boolean eventThreadBound;
     private boolean automatedSmokeStrikeTriggered;
     private int smokeStrikeCountdown;
+    private final DevelopmentCapture developmentCapture = new DevelopmentCapture();
 
     public TempestFxClient(ClientPlatform platform) {
         this.platform = platform;
@@ -224,6 +225,7 @@ public final class TempestFxClient {
         compositor.tick(busy);
 
         maybeRunSmokeStrike(minecraft);
+        developmentCapture.tick(minecraft, this);
     }
 
     private void onLevelChanged(ClientLevel level) {
@@ -243,6 +245,7 @@ public final class TempestFxClient {
         rumble.clear();
         distantBolts.clear();
         screenFlash.clear();
+        cameraImpulse.clear();
         events.clearPending();
         sphereDraws.clear();
         distortion.clear();
@@ -259,6 +262,7 @@ public final class TempestFxClient {
      */
     public QualityPreset reloadConfig() {
         config = configManager.load();
+        applyRenderConfig();
         MinecraftServer server = Minecraft.getInstance().getSingleplayerServer();
         if (server != null) server.execute(() -> TempestFxServer.load(platform.configDirectory()));
         return config.performance.qualityPreset;
@@ -267,12 +271,36 @@ public final class TempestFxClient {
     /** Opens the settings screen over whatever is on screen now. */
     public void openSettings(Screen parent) {
         Minecraft minecraft = Minecraft.getInstance();
-        minecraft.setScreen(new TempestOptionsScreen(parent, config, configManager::saveQuietly));
+        minecraft.setScreen(settingsScreen(parent));
     }
 
     /** The settings screen, for the loaders' own mod-list buttons. */
     public Screen settingsScreen(Screen parent) {
-        return new TempestOptionsScreen(parent, config, configManager::saveQuietly);
+        return new TempestOptionsScreen(parent, config, () -> {
+            configManager.saveQuietly();
+            applyRenderConfig();
+        });
+    }
+
+    private void applyRenderConfig() {
+        if (particles.capacity() != config.performance.maxParticles) {
+            particles.clear();
+            particles = new FxParticleSystem(config.performance.maxParticles, new ImpactParticleSpawnStrategy());
+        }
+        compositor.close();
+        compositor = EffectCompositors.create(config.compatibility.effectCompositor, programs);
+        TempestShaders.setEnabled(config.compatibility.customShaders);
+        programs.setEnabled(config.compatibility.customShaders);
+        programs.reload();
+        bloomBackend = BloomBackendFactory.create(config.compatibility.bloomMode, compatibilityMode());
+        // Drop pending flashes on accessibility changes; they may have been scheduled under the old mode.
+        sequences.clear();
+        screenFlash.clear();
+        worldFlash.clear();
+        cameraImpulse.clear();
+        rumble.clear();
+        distantBolts.clear();
+        if (!config.general.enabled) onLevelChanged(currentLevel);
     }
 
     /** Called by the loader when the client stops, so native buffers and GL targets are released. */
@@ -502,6 +530,7 @@ public final class TempestFxClient {
         } finally {
             distortion.clear();
         }
+        developmentCapture.frame(Minecraft.getInstance(), compositor.status());
     }
 
     public void renderHud(GuiGraphics graphics, float partialTick) {
@@ -520,7 +549,7 @@ public final class TempestFxClient {
         graphics.drawString(minecraft.font, "pipeline " + compatibilityMode()
             + " | programs " + (programs.available() ? "own"
                 : TempestShaders.usingCustomShaders() ? "bundled" : "vanilla")
-            + " | compositor " + (compositor.available() ? "isolated" : "direct"), 8, 20, 0xff8eaccd, true);
+            + " | compositor " + compositor.status(), 8, 20, 0xff8eaccd, true);
         graphics.drawString(minecraft.font, "thunder queue " + thunder.pendingCount()
             + " | rolls " + thunderRolls.activeCount() + "/" + thunderRolls.pendingPulses()
             + " | sky " + distantBolts.activeCount()
@@ -544,7 +573,7 @@ public final class TempestFxClient {
 
     /** Extra client-side sky-flash ticks, honouring the vanilla accessibility option. */
     public int skyFlashTicks() {
-        if (!config.general.enabled || hideLightningFlash()) return 0;
+        if (!config.general.enabled || config.general.reducedFlashing || hideLightningFlash()) return 0;
         return worldFlash.flashTicks();
     }
 

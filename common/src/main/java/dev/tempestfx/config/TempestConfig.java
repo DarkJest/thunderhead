@@ -166,17 +166,16 @@ public final class TempestConfig {
         performance.renderDistance = FxMath.clamp(performance.renderDistance, 64f, 1024f);
         performance.maxConcurrentEffects = FxMath.clamp(performance.maxConcurrentEffects, 1, 256);
 
-        if (general.reducedFlashing) {
-            camera.flashStrength = Math.min(camera.flashStrength, 0.25f);
-            camera.impulseStrength = Math.min(camera.impulseStrength, 0.2f);
-            lightning.flicker = false;
-            lighting.worldFlashTicks = 0;
-            lighting.distantBolts = false;
-            // A multi-stroke flash is exactly the rapid brightness change this mode exists to remove.
-            lightning.returnStrokes = 0;
-        }
         return this;
     }
+
+    // Accessibility is an effective override, never a destructive edit of saved preferences.
+    public int effectiveReturnStrokes() { return general.reducedFlashing ? 0 : lightning.returnStrokes; }
+    public boolean effectiveFlicker() { return !general.reducedFlashing && lightning.flicker; }
+    public int effectiveWorldFlashTicks() { return general.reducedFlashing ? 0 : lighting.worldFlashTicks; }
+    public boolean effectiveDistantBolts() { return !general.reducedFlashing && lighting.distantBolts; }
+    public float effectiveFlashStrength() { return general.reducedFlashing ? Math.min(0.25f, camera.flashStrength) : camera.flashStrength; }
+    public float effectiveImpulseStrength() { return general.reducedFlashing ? Math.min(0.2f, camera.impulseStrength) : camera.impulseStrength; }
 
     /** Particle budget for a strike at {@code distance}, before the global cap is applied. */
     public int particleBudget(double distance) {

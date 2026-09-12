@@ -47,9 +47,9 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
             percent("thickness", 25, 400, config.lightning.thickness, value -> config.lightning.thickness = value),
             percent("glow", 0, 300, config.lightning.glowStrength, value -> config.lightning.glowStrength = value),
             count("branches", 0, 64, config.lightning.branchCount, value -> config.lightning.branchCount = value),
-            percent("scale", 25, 300, config.lightning.scale, value -> config.lightning.scale = value),
+            percent("scale", 40, 250, config.lightning.scale, value -> config.lightning.scale = value),
             percent("cold_tint", 0, 200, config.lightning.coldTint, value -> config.lightning.coldTint = value),
-            count("return_strokes", 0, 6, config.lightning.returnStrokes,
+            count("return_strokes", 0, 4, config.lightning.returnStrokes,
                 value -> config.lightning.returnStrokes = value),
             toggle("flicker", config.lightning.flicker, value -> config.lightning.flicker = value),
             toggle("distant_bolts", config.lighting.distantBolts, value -> config.lighting.distantBolts = value));
@@ -67,10 +67,10 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
 
         list.addSmall(
             toggle("screen_flash", config.camera.screenFlash, value -> config.camera.screenFlash = value),
-            percent("flash_strength", 0, 200, config.camera.flashStrength,
+            percent("flash_strength", 0, 100, config.camera.flashStrength,
                 value -> config.camera.flashStrength = value),
             toggle("camera_impulse", config.camera.cameraImpulse, value -> config.camera.cameraImpulse = value),
-            percent("impulse_strength", 0, 200, config.camera.impulseStrength,
+            percent("impulse_strength", 0, 100, config.camera.impulseStrength,
                 value -> config.camera.impulseStrength = value),
             toggle("dynamic_lighting", config.lighting.dynamicLighting,
                 value -> config.lighting.dynamicLighting = value),
@@ -87,11 +87,11 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
                 value -> config.audio.suppressVanillaThunder = value));
 
         list.addSmall(
-            count("max_particles", 128, 8192, config.performance.maxParticles,
+            count("max_particles", 128, 16384, config.performance.maxParticles,
                 value -> config.performance.maxParticles = value),
-            count("render_distance", 32, 512, (int) config.performance.renderDistance,
+            count("render_distance", 64, 1024, (int) config.performance.renderDistance,
                 value -> config.performance.renderDistance = value),
-            count("max_effects", 1, 128, config.performance.maxConcurrentEffects,
+            count("max_effects", 1, 256, config.performance.maxConcurrentEffects,
                 value -> config.performance.maxConcurrentEffects = value),
             toggle("lod", config.performance.lod, value -> config.performance.lod = value));
     }

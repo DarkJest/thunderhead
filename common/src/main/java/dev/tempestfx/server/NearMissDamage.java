@@ -33,6 +33,12 @@ public final class NearMissDamage {
             && dy <= VANILLA_RADIUS + VANILLA_EXTRA_HEIGHT;
     }
 
+    /** Entity AABB relative to the strike; matches vanilla's strict intersection query. */
+    public static boolean intersectsVanillaBox(double minX, double minY, double minZ,
+                                               double maxX, double maxY, double maxZ) {
+        return minX < 3 && maxX > -3 && minZ < 3 && maxZ > -3 && minY < 9 && maxY > -3;
+    }
+
     /**
      * @param distance horizontal-and-vertical distance from the strike, in blocks
      * @param radius   outer radius from the config

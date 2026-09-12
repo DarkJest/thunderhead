@@ -81,7 +81,7 @@ public final class TempestFxHooks {
      */
     public static void applyCameraImpulse(PoseStack stack, float partialTick) {
         TempestFxClient current = client;
-        if (current == null) return;
+        if (current == null || !current.config().general.enabled || !current.config().camera.cameraImpulse) return;
         CameraImpulseSystem impulse = current.cameraImpulse();
         ThunderRumbleCameraEffect rumble = current.thunderRumble();
         boolean impulseActive = impulse.active();

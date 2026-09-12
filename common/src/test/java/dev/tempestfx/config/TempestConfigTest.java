@@ -36,11 +36,17 @@ class TempestConfigTest {
         config.general.reducedFlashing = true;
         config.validate();
 
-        assertFalse(config.lightning.flicker);
-        assertTrue(config.camera.flashStrength <= 0.25f);
-        assertTrue(config.camera.impulseStrength <= 0.2f);
-        assertEquals(0, config.lighting.worldFlashTicks, "reduced flashing must not extend the sky flash");
-        assertEquals(0, config.lightning.returnStrokes, "a multi-stroke flash is a rapid brightness change");
+        assertFalse(config.effectiveFlicker());
+        assertTrue(config.effectiveFlashStrength() <= 0.25f);
+        assertTrue(config.effectiveImpulseStrength() <= 0.2f);
+        assertEquals(0, config.effectiveWorldFlashTicks());
+        assertEquals(0, config.effectiveReturnStrokes());
+        assertTrue(config.lightning.flicker, "requested values must survive a save");
+        config.general.reducedFlashing = false;
+        config.validate();
+        assertEquals(3, config.effectiveReturnStrokes());
+        assertEquals(4, config.effectiveWorldFlashTicks());
+        assertEquals(1f, config.effectiveFlashStrength());
     }
 
     @Test

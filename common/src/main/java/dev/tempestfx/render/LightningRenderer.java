@@ -94,8 +94,8 @@ public final class LightningRenderer {
      * A single wide quad behind the top of a channel: the cloud it emerged from lighting up.
      */
     public void renderCloudGlow(ActiveLightningEffect effect, PoseStack.Pose pose, VertexConsumer consumer,
-                                Vec3d camera, float partialTick) {
-        float brightness = effect.brightness(partialTick, true, false);
+                                Vec3d camera, float partialTick, TempestConfig config) {
+        float brightness = effect.brightness(partialTick, config.effectiveFlicker(), config.general.reducedFlashing);
         if (brightness <= 0.01f) return;
         var segments = effect.segments();
         if (segments.isEmpty()) return;

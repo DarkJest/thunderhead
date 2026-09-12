@@ -5,6 +5,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import java.nio.ByteBuffer;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
 
 /**
@@ -34,6 +35,7 @@ final class SceneColorCopy implements AutoCloseable {
      */
     boolean capture(int readFramebuffer, int targetWidth, int targetHeight) {
         RenderSystem.assertOnRenderThread();
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
         if (!ensure(targetWidth, targetHeight)) return false;
         GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, readFramebuffer);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);

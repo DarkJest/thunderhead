@@ -17,9 +17,9 @@ public final class WorldFlashSystem {
     private int remaining;
 
     public void onStrike(LightningStrikeFxEvent event, Vec3d camera, TempestConfig config) {
-        if (!config.lighting.worldFlash || config.lighting.worldFlashTicks <= 0) return;
+        if (!config.lighting.worldFlash || config.effectiveWorldFlashTicks() <= 0) return;
         double factor = FxMath.distanceFalloff(camera.distanceTo(event.position()), 24, 260);
-        int ticks = (int) Math.round(config.lighting.worldFlashTicks * factor * event.intensity());
+        int ticks = (int) Math.round(config.effectiveWorldFlashTicks() * factor * event.intensity());
         if (ticks > remaining) remaining = ticks;
     }
 
@@ -27,8 +27,8 @@ public final class WorldFlashSystem {
      * Raises the flash directly, without a strike.
      */
     public void pulse(int ticks, TempestConfig config) {
-        if (!config.lighting.worldFlash || config.lighting.worldFlashTicks <= 0) return;
-        int capped = Math.min(ticks, config.lighting.worldFlashTicks);
+        if (!config.lighting.worldFlash || config.effectiveWorldFlashTicks() <= 0) return;
+        int capped = Math.min(ticks, config.effectiveWorldFlashTicks());
         if (capped > remaining) remaining = capped;
     }
 

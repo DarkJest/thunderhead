@@ -18,6 +18,10 @@ neoForge {
         client {
             client()
             systemProperty 'tempestfx.smokeStrike', 'true'
+            if (project.hasProperty('tempestfxCapture')) {
+                systemProperty 'tempestfx.capture', 'true'
+                systemProperty 'tempestfx.smokeStrike', 'false'
+            }
             // -PtempestfxWorld="New World" boots straight into a save, so the smoke strike fires
             // without any manual interaction.
             if (project.hasProperty('tempestfxWorld')) {

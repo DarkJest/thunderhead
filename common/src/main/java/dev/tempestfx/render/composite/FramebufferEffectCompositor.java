@@ -18,6 +18,9 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.GL20;
+import org.lwjgl.BufferUtils;
+import java.nio.IntBuffer;
 
 /**
  * Draws the effect into a framebuffer of the mod's own, then applies it to the finished frame.
@@ -56,6 +59,9 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
     private final EffectRenderTarget target = new EffectRenderTarget();
     private final SceneColorCopy sceneCopy = new SceneColorCopy();
     private final FxStateGuard guard = new FxStateGuard();
+    private final FxStateGuard preparationGuard = new FxStateGuard();
+    private final IntBuffer viewport = BufferUtils.createIntBuffer(4);
+    private String status = "not yet drawn";
 
     private ByteBufferBuilder quadBuffer;
     private VertexBuffer quad;
@@ -76,7 +82,11 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
     }
 
     @Override
+    public String status() { return status; }
+
+    @Override
     public boolean beginWorldPass() {
+        status = disabled ? "disabled" : "direct";
         if (disabled || worldPassOpen || !RenderSystem.isOnRenderThread()) return false;
         if (pendingComposite && ++missedComposites > MISSED_COMPOSITES_BEFORE_GIVING_UP) {
             degrade("the composite pass is never reached in this pipeline", null);
@@ -93,20 +103,34 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
         // pass has to be running at that resolution too. It always is - every target in the level
         // render is sized to the main one - but a pipeline rendering the world at some other scale
         // would stretch the effect across the frame, and drawing directly is the better answer.
-        if (GlStateManager.Viewport.width() != main.width
-            || GlStateManager.Viewport.height() != main.height) {
+        viewport.clear();
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
+        if (viewport.get(0) != 0 || viewport.get(1) != 0
+            || viewport.get(2) != main.width || viewport.get(3) != main.height) {
+            status = "direct: viewport mismatch";
             return false;
         }
 
+        preparationGuard.capture(true);
+        boolean prepared = false;
         try {
-            if (!target.prepare(main.width, main.height)) return false;
+            prepared = target.prepare(main.width, main.height);
+            if (!prepared) {
+                status = "direct: unavailable depth target";
+                return false;
+            }
         } catch (Throwable failure) {
             degrade("the effect framebuffer could not be prepared", failure);
             return false;
+        } finally {
+            // A failed attachment may already have bound our private FBO. Direct fallback MUST
+            // receive the original target and state, not a colour-only FBO nobody composites.
+            if (!prepared) preparationGuard.restore();
         }
         worldPassOpen = true;
         pendingComposite = true;
         idleTicks = 0;
+        status = "isolated";
         return true;
     }
 
@@ -118,6 +142,8 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
             target.detachDepth();
         } catch (Throwable failure) {
             degrade("the borrowed depth buffer could not be released", failure);
+        } finally {
+            preparationGuard.restore();
         }
     }
 
@@ -158,6 +184,9 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
     @Override
     public void close() {
         release();
+        disabled = false;
+        missedComposites = 0;
+        status = "not yet drawn";
     }
 
     /** One quad, one program, one blend mode; the only pass that ever touches the scene image. */
@@ -170,6 +199,7 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
         GL11.glDisable(GL11.GL_CULL_FACE);
         GL11.glDisable(GL11.GL_SCISSOR_TEST);
         GL11.glEnable(GL11.GL_BLEND);
+        GL20.glBlendEquationSeparate(GL14.GL_FUNC_ADD, GL14.GL_FUNC_ADD);
         // Premultiplied over: scene x (1 - coverage) + colour.
         GL14.glBlendFuncSeparate(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA,
             GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
@@ -214,6 +244,7 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
     private void degrade(String reason, Throwable failure) {
         if (disabled) return;
         disabled = true;
+        status = "disabled: " + reason;
         worldPassOpen = false;
         pendingComposite = false;
         if (failure == null) {
@@ -227,7 +258,6 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
 
     private void release() {
         if (!RenderSystem.isOnRenderThread()) return;
-        if (guard.held()) guard.restore();
         worldPassOpen = false;
         pendingComposite = false;
         idleTicks = 0;

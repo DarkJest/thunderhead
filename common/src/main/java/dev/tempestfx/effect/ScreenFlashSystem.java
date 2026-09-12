@@ -22,7 +22,7 @@ public final class ScreenFlashSystem {
         if (!config.camera.screenFlash || config.camera.flashStrength <= 0) return;
         float distanceFactor = (float) FxMath.distanceFalloff(camera.distanceTo(event.position()), 6, 140);
         float reduction = config.general.reducedFlashing ? 0.22f : 1f;
-        float target = distanceFactor * config.camera.flashStrength * reduction * event.intensity();
+        float target = distanceFactor * config.effectiveFlashStrength() * reduction * event.intensity();
         if (target <= primary) return;
         primary = target;
         previousPrimary = Math.max(previousPrimary, target);

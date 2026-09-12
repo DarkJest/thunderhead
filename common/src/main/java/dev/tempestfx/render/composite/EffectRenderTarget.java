@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.TextureUtil;
 import com.mojang.blaze3d.systems.RenderSystem;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL32;
 
@@ -73,6 +74,8 @@ final class EffectRenderTarget implements AutoCloseable {
      */
     boolean prepare(int targetWidth, int targetHeight) {
         RenderSystem.assertOnRenderThread();
+        // Only units 0 and 1 belong to the effect guard. Never alter the caller's active unit.
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
         int depthName = 0;
         int depthPoint = -1;
         boolean renderbuffer = false;

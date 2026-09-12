@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.1 (development)
+
+- Restore the caller's framebuffer and GL state when isolated rendering cannot start.
+- Preserve texture bindings, actual GPU viewport, clear colour, array buffer and blend equations.
+- Report the observed compositor path; retry disabled isolation after changing worlds or reloading configuration.
+- Apply renderer and particle-budget settings on reload and settings-screen close.
+- Exclude entities whose bounding boxes intersect vanilla lightning damage, including boundary-straddling targets.
+- Apply accessibility limits without overwriting saved appearance preferences; align settings slider ranges with validation.
+- Add an opt-in finite screenshot capture scenario for a disposable singleplayer test save.
+
 ## 1.2.0
 
 ### Rendering

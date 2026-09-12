@@ -75,7 +75,7 @@ public final class WorldFxRenderer {
                 }
                 // One quad per distant channel: the cloud it came out of lighting up behind it.
                 for (ActiveLightningEffect effect : scene.distantBolts()) {
-                    lightningRenderer.renderCloudGlow(effect, pose, consumer, camera, partialTick);
+                    lightningRenderer.renderCloudGlow(effect, pose, consumer, camera, partialTick, config);
                 }
             });
         }
