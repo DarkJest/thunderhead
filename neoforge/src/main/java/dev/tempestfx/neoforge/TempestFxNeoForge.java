@@ -40,6 +40,17 @@ public final class TempestFxNeoForge {
         ENTITY_TYPES.register(TempestEntities.BALL_LIGHTNING_ID.getPath(), TempestEntities::buildBallLightning);
 
     public TempestFxNeoForge(IEventBus modBus, ModContainer container) {
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.RegisterCommandsEvent.class, event -> dev.tempestfx.server.StormCommands.register(event.getDispatcher()));
+        modBus.addListener(net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent.class, event ->
+            event.registrar("2").optional().playToClient(dev.tempestfx.storm.StormPacket.TYPE, dev.tempestfx.storm.StormPacket.CODEC,
+                (packet, context) -> context.enqueueWork(() -> dev.tempestfx.storm.StormNetwork.receive(packet))));
+        dev.tempestfx.storm.StormNetwork.installServer((player, packet) -> {
+            if (player.connection.hasChannel(dev.tempestfx.storm.StormPacket.TYPE)) net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, packet);
+        });
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.LevelTickEvent.Post.class, event -> {
+            if (event.getLevel() instanceof ServerLevel level) dev.tempestfx.server.StormServer.tick(level);
+        });
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.server.ServerStoppedEvent.class, event -> dev.tempestfx.server.StormServer.clear());
         for (ThunderProfile profile : ThunderProfile.values()) {
             SOUND_EVENTS.register(profile.path(), () -> SoundEvent.createVariableRangeEvent(TempestSounds.id(profile)));
         }

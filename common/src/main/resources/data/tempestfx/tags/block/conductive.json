@@ -1,0 +1,4 @@
+{
+  "replace": false,
+  "values": ["minecraft:lightning_rod", "minecraft:iron_block", "minecraft:gold_block", "minecraft:copper_block", "minecraft:exposed_copper", "minecraft:weathered_copper", "minecraft:oxidized_copper"]
+}

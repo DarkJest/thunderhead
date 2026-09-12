@@ -60,7 +60,6 @@ import dev.tempestfx.render.ShaderPackProfile;
 import dev.tempestfx.render.VanillaFxBatchTarget;
 import dev.tempestfx.render.WorldFxRenderer;
 import dev.tempestfx.render.SurfaceLightingPolicy;
-import dev.tempestfx.render.PackChannelRenderer;
 import dev.tempestfx.render.composite.EffectCompositor;
 import dev.tempestfx.render.composite.SceneLightField;
 import org.joml.Matrix4f;
@@ -73,6 +72,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.Locale;
+import dev.tempestfx.storm.NativeSpawnCorrelation;
+import dev.tempestfx.storm.StormEvent;
+import dev.tempestfx.storm.StormInbox;
+import dev.tempestfx.storm.StormNetwork;
+import dev.tempestfx.api.StrikeOptions;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -120,10 +124,6 @@ public final class TempestFxClient {
 
     private final StrikeIngest ingest = new StrikeIngest();
     private final WorldFxRenderer worldRenderer = new WorldFxRenderer();
-    private final PackChannelRenderer packChannels = new PackChannelRenderer();
-    private boolean channelsInPack;
-    private boolean packFramePrepared;
-    private boolean packFrameDrawn;
     /** The mod's own programs; the whole native path depends on them and nothing else does. */
     private final FxPrograms programs = new FxPrograms();
     private final NativeFxBatchTarget nativeTarget = new NativeFxBatchTarget(programs);
@@ -151,6 +151,16 @@ public final class TempestFxClient {
     private long lastWorldFrameNanos;
     private boolean lastIsolationFailed;
     private String lastWorldPath = "not yet drawn";
+    private final FrameMetrics frameMetrics = new FrameMetrics();
+    public String diagnostics() {
+        return frameMetrics.report()+" bolts="+effects.activeLightningCount()+" particles="+particles.activeCount()
+            +" thunder="+thunder.pendingCount()+" incoming="+stormInbox.pendingCount();
+    }
+    private final StormInbox stormInbox = new StormInbox();
+    private final NativeSpawnCorrelation nativeSpawns = new NativeSpawnCorrelation();
+    private final List<DelayedVanilla> delayedVanilla = new ArrayList<>();
+    private boolean serverStormProtocol;
+    private record DelayedVanilla(LightningStrikeFxEvent event, int ticks, int entityId) {}
 
     public TempestFxClient(ClientPlatform platform) {
         this.platform = platform;
@@ -177,6 +187,7 @@ public final class TempestFxClient {
         registerSubsystems();
         TempestFxApi.Internal.install(events::publish, this::triggerThunderRoll);
         TempestFxHooks.install(this);
+        StormNetwork.installClient(this::onStormEvent);
     }
 
     /**
@@ -210,8 +221,18 @@ public final class TempestFxClient {
             cameraImpulse.onStrike(event, platform.cameraPosition(), config);
             if (event.primary()) { startEntityDischarges(event); leaveAshImprint(event); }
         }
-        playStrikeAudio(event);
+        if (!config.realistic() || !config.audio.channelThunder) playStrikeAudio(event);
         if (!event.primary()) TempestFxApi.Internal.fireStrike(event);
+    }
+
+    private void onFlashAccepted(LightningStrikeFxEvent event) {
+        var effect = effects.latest();
+        if (config.realistic() && config.audio.channelThunder && effect != null) {
+            thunder.onChannelFlash(event, effect.geometry(), effect.timeline(), config, effect.age());
+        } else if (effect != null && effect.age() > 0) {
+            thunder.onPastContacts(event, effect.timeline(), effect.age(), platform.cameraPosition(), config);
+        }
+        TempestFxApi.Internal.fireStrike(event);
     }
 
     // ------------------------------------------------------------------ lifecycle
@@ -227,6 +248,14 @@ public final class TempestFxClient {
             return;
         }
         events.drain();
+        if (currentLevel != null) stormInbox.tick(currentLevel.getGameTime(), this::startNetworkFlash);
+        for (int i = delayedVanilla.size() - 1; i >= 0; i--) {
+            var pending = delayedVanilla.get(i);
+            delayedVanilla.remove(i);
+            if (nativeSpawns.resolved(pending.entityId(), currentLevel.getGameTime())) continue;
+            if (pending.ticks() > 1) delayedVanilla.add(i, new DelayedVanilla(pending.event(), pending.ticks() - 1, pending.entityId()));
+            else if (nativeSpawns.claim(pending.entityId(), currentLevel.getGameTime())) events.publish(pending.event());
+        }
 
         ingest.tick();
         particles.tick();
@@ -235,12 +264,12 @@ public final class TempestFxClient {
         lights.tick();
         worldFlash.tick();
         imprints.tick();
-        thunder.tick();
+        thunder.tick(config);
         thunderRolls.tick(config);
         rumble.tick();
         distantBolts.tick();
         showcaseCamera.tick(minecraft);
-        flashes.tick(platform.cameraPosition(), config, this::onFlashContact, TempestFxApi.Internal::fireStrike);
+        flashes.tick(platform.cameraPosition(), config, this::onFlashContact, this::onFlashAccepted);
         tickBallLightning();
         if (currentLevel != null) {
             ClientLevel level = currentLevel;
@@ -257,7 +286,7 @@ public final class TempestFxClient {
     }
 
     private void onLevelChanged(ClientLevel level) {
-        packFramePrepared = packFrameDrawn = channelsInPack = false;
+        stormInbox.clear(); nativeSpawns.clear(); delayedVanilla.clear(); serverStormProtocol = false;
         showcaseCamera.disable(Minecraft.getInstance(), false);
         currentLevel = level;
         ingest.clear();
@@ -282,7 +311,6 @@ public final class TempestFxClient {
         // allocates them again. It is also a fresh chance for the programs to compile.
         compositor.close();
         programs.reload();
-        packChannels.close();
     }
 
     /**
@@ -313,8 +341,8 @@ public final class TempestFxClient {
     }
 
     private void applyRenderConfig() {
-        packFramePrepared = packFrameDrawn = channelsInPack = false;
-        packChannels.close();
+        thunder.clear();
+        thunderRolls.clear();
         if (particles.capacity() != config.performance.maxParticles) {
             particles.clear();
             particles = new FxParticleSystem(config.performance.maxParticles, new ImpactParticleSpawnStrategy());
@@ -337,6 +365,7 @@ public final class TempestFxClient {
 
     /** Called by the loader when the client stops, so native buffers and GL targets are released. */
     public void shutdown() {
+        StormNetwork.installClient(event -> {});
         showcaseCamera.disable(Minecraft.getInstance(), false);
         TempestFxHooks.uninstall();
         TempestFxApi.Internal.uninstall();
@@ -344,7 +373,6 @@ public final class TempestFxClient {
         vanillaTarget.close();
         compositor.close();
         programs.close();
-        packChannels.close();
         TempestShaders.clear();
     }
 
@@ -352,9 +380,37 @@ public final class TempestFxClient {
 
     /** Hook target for {@code ClientLevel#addEntity}. */
     public void onLightningSpawn(ClientLevel level, LightningBolt bolt) {
-        if (!config.general.enabled || level != currentLevel) return;
+        if (!config.general.enabled || level != Minecraft.getInstance().level) return;
+        if (level != currentLevel) onLevelChanged(level);
         LightningStrikeFxEvent event = ingest.ingest(level, bolt);
-        if (event != null) events.publish(event);
+        if (config.general.debug && event != null) TempestFx.log().info("Observed vanilla bolt seed={} protocol={}", event.seed(), serverStormProtocol);
+        if (event == null || nativeSpawns.resolved(bolt.getId(), level.getGameTime())) return;
+        if (serverStormProtocol) {
+            if (delayedVanilla.size() == 128) delayedVanilla.removeFirst();
+            delayedVanilla.add(new DelayedVanilla(event, 3, bolt.getId()));
+        } else if (nativeSpawns.claim(bolt.getId(), level.getGameTime())) events.publish(event);
+    }
+
+    private void onStormEvent(StormEvent event) {
+        ClientLevel level = Minecraft.getInstance().level;
+        if (level == null || !level.dimension().location().toString().equals(event.dimension())) return;
+        if (level != currentLevel) onLevelChanged(level);
+        serverStormProtocol = true;
+        if (event.hello() || !config.general.enabled || nativeSpawns.resolved(event.nativeEntityId(), level.getGameTime())) return;
+        if (stormInbox.accept(event, event.dimension(), level.getGameTime())) nativeSpawns.claim(event.nativeEntityId(), level.getGameTime());
+    }
+
+    private void startNetworkFlash(StormEvent packet, int age) {
+        if (currentLevel == null || !config.general.enabled) return;
+        var sample = environmentAt(currentLevel, packet.target());
+        var environment = new LightningEnvironment(sample.type(), sample.groundColor(), sample.raining(), sample.moisture(),
+            packet.target().y(), sample.foliage(), sample.brightness());
+        var target = packet.lightningKind().contactsGround() ? ingest.resolveTarget(currentLevel, packet.target()) : StrikeTarget.none();
+        var event = new LightningStrikeFxEvent(packet.target(), packet.seed(), packet.intensity(), environment, target, 0,
+            StrikeOptions.builder().origin(packet.origin()).kind(packet.lightningKind()).build());
+        flashes.enqueue(event, age, packet.returns());
+        if (config.general.debug) TempestFx.log().info("Storm event id={} seed={} start={} age={} kind={}",
+            packet.id(), packet.seed(), packet.startTick(), age, packet.lightningKind());
     }
 
     /** Hook target for {@code ClientLevel#addEntity}: keeps a cheap list instead of querying. */
@@ -494,18 +550,6 @@ public final class TempestFxClient {
 
     // ------------------------------------------------------------------ rendering
 
-    /** Recognized lightning geometry must enter before the pack's later weather/composite stages. */
-    public void renderPackChannels(PoseStack stack, float partialTick) {
-        packFramePrepared = packFrameDrawn = false;
-        if (!config.general.enabled || currentLevel == null || !config.compatibility.customShaders || !config.compatibility.packNativeChannels
-            || !shaders.shaderPackActive(compatibilityMode())) return;
-        var scene = scene();
-        if (scene.lightning().isEmpty() && scene.distantBolts().isEmpty()) return;
-        prepareEffectFrames(scene, partialTick);
-        packFramePrepared = true;
-        packFrameDrawn = packChannels.draw(scene, stack, platform.cameraPosition(), partialTick, config);
-    }
-
     private void prepareEffectFrames(WorldFxRenderer.Scene scene, float partialTick) {
         long now = System.nanoTime();
         float frameTicks = lastWorldFrameNanos == 0 ? 1f / 3f : (now - lastWorldFrameNanos) / 50_000_000f;
@@ -523,11 +567,10 @@ public final class TempestFxClient {
      * loader.
      */
     public void renderWorld(PoseStack stack, float partialTick) {
+        long renderStarted = System.nanoTime();
         if (!config.general.enabled || currentLevel == null) return;
         WorldFxRenderer.Scene scene = scene();
-        if (!packFramePrepared) prepareEffectFrames(scene, partialTick);
-        channelsInPack = packFrameDrawn;
-        packFramePrepared = packFrameDrawn = false;
+        prepareEffectFrames(scene, partialTick);
         if (scene.isEmpty()) return;
 
         Vec3d camera = platform.cameraPosition();
@@ -555,7 +598,7 @@ public final class TempestFxClient {
             if (bloomActive) bloomBackend.begin();
             worldRenderer.render(scene, stack, target, camera, partialTick, config,
                 bloomBackend.emissiveBoost(), shaderPackProfile(isolated && own),
-                SurfaceLightingPolicy.useSurfacePath(config, isolated, hideLightningFlash()), channelsInPack || !drawsOwnLightning());
+                SurfaceLightingPolicy.useSurfacePath(config, isolated, hideLightningFlash()), !drawsOwnLightning());
         } finally {
             try {
                 try {
@@ -568,6 +611,7 @@ public final class TempestFxClient {
             } finally {
                 worldGuard.restore();
                 sphereDraws.clear();
+                if (config.general.debug) frameMetrics.add(System.nanoTime()-renderStarted);
             }
         }
     }
@@ -602,7 +646,7 @@ public final class TempestFxClient {
         graphics.drawString(minecraft.font, "pipeline " + compatibilityMode()
             + " | programs " + (programs.available() ? "own"
                 : TempestShaders.usingCustomShaders() ? "bundled" : "vanilla")
-            + " | compositor " + lastWorldPath + " | channel " + (channelsInPack ? "pack" : "own"), 8, 20, 0xff8eaccd, true);
+            + " | compositor " + lastWorldPath, 8, 20, 0xff8eaccd, true);
         graphics.drawString(minecraft.font, "thunder queue " + thunder.pendingCount()
             + " | rolls " + thunderRolls.activeCount() + "/" + thunderRolls.pendingPulses()
             + " | sky " + distantBolts.activeCount()

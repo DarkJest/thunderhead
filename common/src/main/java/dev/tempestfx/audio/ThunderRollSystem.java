@@ -84,6 +84,7 @@ public final class ThunderRollSystem {
     }
 
     public void tick(TempestConfig config) {
+        if (!config.general.enabled || !config.audio.customThunder || config.audio.thunderVolume <= 0) { clear(); return; }
         if (cooldown > 0) cooldown--;
         for (int index = active.size() - 1; index >= 0; index--) {
             GiantRollingThunderEffect effect = active.get(index);

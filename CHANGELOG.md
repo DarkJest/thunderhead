@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.0.0
+
+- Complete the shared flash lifecycle with four discharge categories, canonical realistic geometry,
+  frame-integrated pulses and configurable realistic channel exposure.
+- Keep isolated shader-independent channels and depth-based surface lighting. Remove the unsuccessful
+  native-material experiment rather than exposing a broken presentation mode.
+- Distribute thunder along the channel; preserve moving-listener timing, optional shelter attenuation,
+  late legacy cues and shared audio budgets.
+- Add server charge cells with lifecycle/drift, optional extra ground strikes and protocol v2 for event
+  IDs, seeds, endpoints, timing and explicit native entity correlation. Clients remain usable on vanilla servers.
+- Add bounded loaded-terrain contact selection, connected-surface damage and opt-in side flash;
+  keep vanilla damage/conversions/rod behavior and cosmetic-event protections separate.
+- Add server visual/real-strike APIs and operator diagnostics; update configuration, quality presets,
+  saved-preference migration and storm-wide reduced-flashing behavior.
+- Validate both loaders, dedicated multiplayer, client-only operation and shader captures. Final two
+  independent reviews found four issues; all were fixed and rechecked with regressions.
+
+Lighting remains an explicit approximation: full volumetric cloud transport, offscreen occlusion and
+native reflections in every shader pack are not implemented. See release/compatibility.md.
+
 ## 1.5.0-dev (incomplete milestone)
 
 - Experimental depth-based illumination of visible surfaces from a bounded set of channel samples,

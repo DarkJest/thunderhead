@@ -12,13 +12,17 @@ public final class FlashEventSystem {
     private final List<Pending> pending = new ArrayList<>();
 
     public void add(LightningStrikeFxEvent event, FlashTimeline timeline) {
+        add(event, timeline, 0);
+    }
+    public void add(LightningStrikeFxEvent event, FlashTimeline timeline, int elapsed) {
         for (FlashTimeline.Pulse pulse : timeline.pulses()) {
+            if (pulse.atTicks() <= elapsed) continue;
             if (pending.size() == MAX_PENDING) break;
             // Preserve origin, surface, API style and SILENT/particle filters for every impulse.
             var stroke = new LightningStrikeFxEvent(event.position(), event.seed(),
                 event.intensity() * pulse.strength(), event.environment(), event.target(),
                 event.stroke() + pulse.index(), event.options());
-            pending.add(new Pending((int) Math.ceil(pulse.atTicks()), stroke));
+            pending.add(new Pending((int) Math.ceil(pulse.atTicks() - elapsed), stroke));
         }
     }
 

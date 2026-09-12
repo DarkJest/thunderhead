@@ -3,8 +3,8 @@ package dev.tempestfx.math;
 public final class FxMath {
     private FxMath() {}
 
-    public static double clamp(double value, double min, double max) { return Math.max(min, Math.min(max, value)); }
-    public static float clamp(float value, float min, float max) { return Math.max(min, Math.min(max, value)); }
+    public static double clamp(double value, double min, double max) { return Double.isNaN(value) ? min : Math.max(min, Math.min(max, value)); }
+    public static float clamp(float value, float min, float max) { return Float.isNaN(value) ? min : Math.max(min, Math.min(max, value)); }
     public static int clamp(int value, int min, int max) { return Math.max(min, Math.min(max, value)); }
 
     public static double smoothstep(double edge0, double edge1, double value) {

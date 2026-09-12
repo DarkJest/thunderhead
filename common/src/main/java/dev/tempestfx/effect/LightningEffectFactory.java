@@ -39,8 +39,7 @@ public final class LightningEffectFactory {
         // the channel hangs from the cloud base with a seeded lean, which is every strike the mod
         // raises itself. Displacement is then scaled by the channel that actually exists, not by the
         // one that would have been derived, or a short slanted bolt wanders like a tall one.
-        Vec3d start = event.origin() != null ? event.origin() : config.realistic() || !event.kind().contactsGround()
-            ? realisticOrigin(event, config, seed, scale) : derivedOrigin(event, seed, lod, scale);
+        Vec3d start = originFor(event, lod, config);
         double height = Math.max(1, start.distanceTo(event.position()));
 
         LightningGenerationConfig base = LightningGenerationConfig.high();
@@ -63,6 +62,12 @@ public final class LightningEffectFactory {
             .build();
         return new ActiveLightningEffect(event, config.realistic()
             ? dischargeGeometry.generate(bolt, event.kind(), lod) : geometryStrategy.generate(bolt), lod, timeline);
+    }
+
+    public Vec3d originFor(LightningStrikeFxEvent event, LightningLod lod, TempestConfig config) {
+        float scale = LightningLook.resolve(config, event.style()).scale();
+        return event.origin() != null ? event.origin() : config.realistic() || !event.kind().contactsGround()
+            ? realisticOrigin(event, config, event.seed(), scale) : derivedOrigin(event, event.seed(), lod, scale);
     }
 
     private static Vec3d realisticOrigin(LightningStrikeFxEvent event, TempestConfig config, long seed, float scale) {

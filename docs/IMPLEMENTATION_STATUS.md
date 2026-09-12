@@ -1,5 +1,8 @@
 # Implementation journal
 
+Current: 2.0 implementation and both final reviews completed. Final packaging/verification evidence is
+recorded at the end of this journal. Earlier incomplete-stage entries are historical development notes.
+
 ## 2026-09-12 — 1.2 baseline / 1.2.1 corrections
 
 - User authorized implementation through 2.0, one independent reviewer after each minor release,
@@ -82,3 +85,29 @@
   API-only custom geometry remains limited when the mod's own programs are unavailable under a pack.
 - Latest milestone state: 1.3/1.4 implementation checkpoints reviewed; 1.5-dev surface prototype reviewed
   and tested, but full 1.5 acceptance remains open. 1.6–2.0 are still pending implementation.
+
+## 2026-09-13 — 2.0 completion and final verification
+
+- User authorized revising anything needed for quality and requested two final reviewers. Remaining
+  roadmap work was integrated into the 2.0 candidate: channel acoustics, server cells/protocol,
+  loaded-terrain contact selection, ground conduction, public APIs, accessibility and quality controls.
+- The failed native-material experiment was removed. Supported rendering is the isolated channel and
+  explicit surface-light approximation; full cloud/reflection integration is not advertised.
+- Final reviewers: final_review_gameplay_network and final_review_render_audio. Four findings fixed:
+  geometry-seed/event-identity confusion, late legacy thunder loss, endpoint-only channel culling,
+  and contradictory API documentation. Both reviewers rechecked and reported no remaining blockers.
+- Protocol v2 carries native entity correlation separately from event IDs and geometry seeds.
+  Final dedicated-server test: 26 shared events across two clients, zero duplicates and zero
+  seed/start/kind mismatches. The earlier pre-v2 test had 41 matching shared events.
+- Client-only check used the official vanilla 1.21.1 server: eight real bolts observed with protocol=false;
+  queued audio/effects drained. Fabric integrated-server protocol/ground/cloud runtime also passed.
+- Real server conduction fixture: health 20 -> 18.555555 on continuous stone, health remained 20 with
+  an air gap. The NoAI fixture explicitly sets OnGround; its initial missing flag correctly prevented damage.
+- Stress fixture generated ~2,300 visual strikes over two minutes. On Ryzen 7 5700X / Radeon RX 570,
+  final 2048-sample render-submission window was p50 0.471 ms / p95 1.869 ms / p99 2.193 ms.
+  These measure CPU submission plus driver waits, not standalone GPU time or total frame time.
+- A test-harness integrated-server disconnect hang was corrected by using the normal stop path outside
+  explicit in-tick disconnect. The last ARTShade capture (1789247679418) saved and exited normally.
+- Final core tests: 187 passed before final version metadata packaging. No release was pushed remotely.
+- Limits remain documented: approximate optics/acoustics/conduction; no universal shader-pack certification,
+  no complete native cloud/reflection transport, no calibrated multi-GPU benchmark or WAN latency certification.

@@ -41,6 +41,7 @@ public final class TempestFxServer {
      * Called when a bolt is added to a server level.
      */
     public static void onLightningSpawn(ServerLevel level, LightningBolt bolt) {
+        StormServer.observe(level, bolt);
         // A visual-only bolt is scenery: vanilla skips its entire damage block, which is how the
         // skeleton horse trap flashes without electrocuting whoever triggered it. Clients still draw
         // the flash - only the gameplay half is skipped, exactly as vanilla does.
@@ -66,7 +67,24 @@ public final class TempestFxServer {
                 continue;
             }
             double distance = at.distanceTo(position);
-            float damage = NearMissDamage.damageAt(distance, settings.radius, settings.maxDamage);
+            float damage = settings.physicalConduction
+                ? GroundCurrent.damage(distance, settings.radius, settings.maxDamage,
+                    SurfaceConduction.path(level, position, at), target.onGround() || target.isInWater())
+                : NearMissDamage.damageAt(distance, settings.radius, settings.maxDamage);
+            if (settings.sideFlash && distance <= 6) {
+                // Only short, fully loaded paths may be tested on the server.
+                boolean loaded = true;
+                int minX = Math.min(bolt.blockPosition().getX(), target.getBlockX()) >> 4;
+                int maxX = Math.max(bolt.blockPosition().getX(), target.getBlockX()) >> 4;
+                int minZ = Math.min(bolt.blockPosition().getZ(), target.getBlockZ()) >> 4;
+                int maxZ = Math.max(bolt.blockPosition().getZ(), target.getBlockZ()) >> 4;
+                for (int x=minX; x<=maxX; x++) for(int z=minZ; z<=maxZ; z++) loaded &= level.hasChunk(x,z);
+                boolean clear = loaded && level.clip(new net.minecraft.world.level.ClipContext(position.add(0,.2,0), target.getEyePosition(),
+                    net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, target)).getType()
+                    == net.minecraft.world.phys.HitResult.Type.MISS;
+                damage = Math.max(damage, GroundCurrent.sideFlash(distance, 6, settings.maxDamage,
+                    level.getBlockState(bolt.blockPosition().below()).is(SurfaceConduction.CONDUCTIVE), clear));
+            }
             if (damage <= 0) continue;
             target.hurt(bolt.damageSources().lightningBolt(), damage);
             if (settings.igniteSeconds > 0 && !target.fireImmune()

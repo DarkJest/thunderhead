@@ -1,241 +1,93 @@
-# Thunderhead — Lightning & Thunder Overhaul
+# Thunderhead 2.0 — Lightning & Thunder
 
-> Development status: 1.5.0-dev is implementing the [realism roadmap](docs/ROADMAP_RU.md).
-> The feature descriptions below document the original cinematic presentation. New configurations
-> select Realistic; existing configurations retain Cinematic. Both now use a shared channel and pulse
-> timeline. Shader compatibility means tested combinations, not guaranteed integration with every pack's
-> cloud lighting, exposure or reflections. See [implementation evidence](docs/IMPLEMENTATION_STATUS.md).
+Minecraft **1.21.1**, Java **21**, **Fabric** or **NeoForge**.
 
-> Minecraft 1.21.1 · Fabric & NeoForge · cinematic lightning, storm fronts and rolling thunder
+Thunderhead replaces lightning with procedural channels, shared return-stroke timing, distributed thunder and optional server-driven storm activity. It uses bounded physical approximations designed for Minecraft, rather than claiming a complete plasma or atmospheric simulation.
 
-**Thunderhead** is a visual, audio and gameplay overhaul of lightning for Minecraft 1.21.1. A strike
-stops being a white line and a delayed boom, and becomes a short cinematic event: a leader racing
-down from the cloud, a branching cold-white channel that flashes two or three more times down the
-same path, a blinding exposure flash, a pressure ring tearing across the ground, sparks, embers,
-debris, smoke and ash — and only afterwards, at the speed of sound, the thunder.
+## What changes
 
-The visual half is client-side and works on any server. The gameplay half — being hurt by a strike
-that lands near you, and the ball lightning it can leave behind — needs the mod on the server too.
+- **One channel per flash.** A weak leader and a fast return front use the same topology as subsequent impulses. Brightness is integrated over frame intervals instead of relying on a single sample.
+- **Four discharge categories:** negative and positive cloud-to-ground, intracloud and intercloud. Cloud events do not create ground-impact particles or damage.
+- **Stable realistic geometry.** Lower detail retains vertices from a canonical backbone; endpoints remain fixed and forks attach to retained vertices.
+- **Thunder along the channel.** Up to eight spatial sources follow the flash's pulse plan. Arrival uses distance / 343 m/s and the listener's current position. Optional local shelter attenuation selects a muffled profile behind obstacles.
+- **Surface illumination.** A private depth snapshot reconstructs visible surfaces and approximate normals. Up to four channel samples illuminate them with bounded screen-space occlusion checks.
+- **Server storm cells.** Small charge reservoirs drift, build activity and decay during Minecraft thunderstorms. An optional versioned protocol shares event IDs, seeds, kinds, endpoints and start times, with bounded deduplication and late-arrival handling.
+- **Ground conduction.** Additional near-miss damage can depend on connected surface materials and whether the target contacts the ground. A short side-flash approximation is separately opt-in. Vanilla's own damage region is excluded by bounding-box intersection.
+- **Accessibility and budgets.** Reduced flashing preserves saved preferences, removes the pulse train, suppresses vanilla sky flashes and limits new visual flashes across the storm. Sound, particles, geometry and network queues have explicit caps.
 
-## Features
+## Installation
 
-- ⚡ **Procedural channels** — seeded midpoint displacement with direction-aware forking, micro
-  stubs and a leader that visibly travels from cloud to ground. Width steps down a fixed ladder with
-  every level of branching — thick trunk, distinctly thinner limbs, thinner twigs again — instead of
-  a tangle of identical strands
-- 🔁 **Multi-stroke flashes** — real lightning discharges several times down the same channel; so
-  does this, with seeded timing, weakening strokes and a couple of metres of wander between them
-- 🔦 **Three-layer emissive rendering** — cold halo, inner sheath and near-white core, drawn through
-  bundled core shaders that give every ribbon a soft analytic cross-section
-- 🌌 **Sky-spanning flashes** — channels reach 130–190 blocks up with near-horizontal intracloud
-  canopy branches crawling out from the cloud base, so a strike occupies real sky
-- 🔊 **Rolling thunder as its own effect** — a five-to-ten second event assembled at runtime from
-  a dozen component layers, each with its own bearing, distance, delay, pitch and envelope: CRACK,
-  BOOM, a low-frequency wall, irregular overlapping rolls sweeping across the sky, distant grumble
-  and a long decay. It is triggered by a strike and then runs independently of it
-- ⛅ **A wall of distant lightning** — a roll puts 15 to 100 heavily forked cloud-to-ground channels
-  across the horizon *every second* it runs: vertical, leaning as they descend, each with its own
-  fork tree that does not count toward the rate. They form one tight storm front — a single distance
-  scaled to your render distance, inside a narrow arc that drifts as the event moves — rather than
-  scattered flashes all over the sky. Dense storms are deliberately rare
-- 🌊 **Transient-driven camera** — the view reacts to the individual booms as they arrive, not to a
-  single sine running for the whole event
-- 💥 **Ground shockwave** — a noisy, seam-free pressure ring, a procedural shockwave shader with
-  curl-noise warping, an overexposed impact burst and wide atmospheric haze
-- 🌊 **Screen-space air distortion** — a post-processing pass that bends the scene along the
-  wavefront (vanilla pipeline only, degrades silently everywhere else)
-- ✨ **Custom particle engine** — pooled sparks, micro arcs, embers, dust, debris, smoke, steam, ash
-  and water spray, all velocity-aware, interpolated, lit by the scene and shaped by torn masks
-  rather than soft discs; no vanilla particle is used
-- 🔌 **Entity discharge** — residual charge crawls over anything that was near the strike **and is
-  moving**; stand still and it bleeds away in half a second
-- 🕯️ **Ash imprint** — a direct hit on a player burns a branching Lichtenberg scar into the ground
-  that glows, cools and slowly fades
-- ⚡ **Near-miss damage** — a strike that lands close hurts, on a smooth falloff, instead of vanilla's
-  all-or-nothing 3-block box
-- 🔮 **Ball lightning** — a rare, slow, floating plasma sphere left behind by a strike: it hovers at
-  head height, drifts along the ground contour, sheds sparks, and discharges into whatever it touches
-- 💡 **Transient illumination** — an additive light pool plus a short extension of the client-side
-  sky flash; no chunk is ever relit
-- 🌩️ **Layered thunder** — five original profiles plus a sub-bass impact thump and an arc crackle,
-  scheduled at `distance / 343 s`, mixed so distant strikes stay audible, and voice-limited so a
-  dense storm never exhausts the game's sound channels
-- 🎮 **Fabric + NeoForge** from one shared codebase
-- 🌈 **Works under any shader pack** — the effect is drawn with the mod's own programs into a
-  framebuffer of its own and applied once the frame is finished, so it looks the same with a pack as
-  without one. Nothing on that path asks which pipeline is installed. Verified with Iris 1.8.12 under
-  Complementary Unbound r5.8.1 and ARTShade V0.3.0FIX; vanilla rendering is unchanged
-- ⚙️ **Fully configurable**, with a reduced-flashing accessibility mode
+Install exactly one jar for your loader:
 
-No vanilla lightning renderer, thunder sound, particle type or borrowed asset is used. Every bundled
-texture, GLSL program, OGG and even the mod icon is original work made for this project: the masks,
-curl maps, burst and haze textures are synthesised from noise, filters and drawn primitives, and the
-audio is built from filtered noise and transients. Nothing is sampled from Minecraft, from another
-mod, from a shader pack or from the web.
+- Fabric Loader 0.16.14+ and Fabric API for Minecraft 1.21.1.
+- NeoForge 21.1.x; development verification uses 21.1.248.
 
-## Requirements
+**Client only:** vanilla server lightning receives local visuals and audio. The mod does not change server gameplay or invent a synchronized server storm.
 
-- Minecraft 1.21.1
-- Java 21
-- Fabric Loader 0.16.14+ with Fabric API, **or** NeoForge 21.1+
+**Client and server:** optional storm synchronization and server gameplay settings are available. Extra storm-generated ground strikes are **off by default**. Cloud activity does not modify blocks. Operators can enable additional real strikes explicitly.
 
-Install exactly one loader jar from the matching `build/libs` folder.
+Ball lightning remains an experimental gameplay feature and is **off for new server configurations**. Existing explicit settings are preserved.
 
-**On a vanilla server** the client half still works: channels, multi-stroke flashes, shockwaves,
-particles, discharges, ash imprints, thunder and screen effects all run from replicated state alone.
-Near-miss damage and ball lightning are simply absent, because both are server decisions.
+## Shader compatibility
 
-**With the mod on the server**, everything is available and every client sees the same storm.
+The normal channel renderer uses its own programs and framebuffer, then composites into the finished scene. This preserves the mod's pulse appearance without requiring edits to a shader pack. True vanilla bolts retain their vanilla entity renderer if the mod's custom programs are unavailable under a pack.
 
-## What is and is not touched
+Surface lighting is an approximation from the available depth. It cannot recover off-screen occluders, a pack's cloud density, or its reflection and exposure buffers. **Full volumetric cloud lighting and pack-native reflections are not promised.** Transparent water, alternate depth pipelines and other GPUs need combination-specific testing.
 
-Vanilla lightning behaviour is left exactly as it is: 5 points and ignition inside its own damage
-box, fires, lightning rods, copper weathering, mob conversions. Thunderhead only adds effects
-*outside* that box — the real one, `x±3, y-3..y+9, z±3` — so nothing is ever damaged twice for one
-bolt, and every addition can be turned off in `config/tempestfx-server.json`.
+An experimental native-material route was tested and removed: Complementary replaced supplied channel brightness/color and introduced depth artifacts. It is not part of the supported 2.0 path.
 
-## Multiplayer
+See [the compatibility matrix](release/compatibility.md) for exact tested combinations and limitations. No finite test matrix proves compatibility with every existing or future shader pack.
 
-Thunderhead sends no custom packets at all. Consistency comes from deriving every random decision —
-channel shape, fork placement, flicker, stroke timing, thunder profile, particle scatter, arc
-pattern, imprint rotation — from data the server replicates verbatim: the bolt's spawn position and
-its entity id.
+## Settings
 
-Entity ids matter here. An earlier version salted the seed with the world time, but a client's tick
-counter can drift a tick or two between the periodic time packets, which would give two players
-slightly different bolts. Entity ids arrive in the spawn packet and are known to the server as well,
-so the server-side gameplay and the client-side visuals agree on one flash.
+Use `/tempestfx settings`, ModMenu on Fabric, or NeoForge's config button.
 
-`LightningBolt.seed`, the field vanilla uses for its own bolt shape, is deliberately *not* used: it
-is rolled from each client's local random, so it differs per player and per rejoin.
+- **Realistic** is selected for new client configs: restrained impacts, a coherent flash and channel-based thunder.
+- **Cinematic** preserves enhanced impact rings, stronger decorative effects and audio-driven distant walls. Existing configs keep this presentation unless changed.
+- Quality presets adjust geometry, particle/effect budgets and surface-lighting cost. They are independent of presentation and accessibility.
+- Disable shelter attenuation if an acoustic mod already handles obstruction.
 
-Ball lightning is a real entity rather than a client-side effect, so vanilla's entity replication
-keeps its position, its lifetime and its damage in agreement for free. What vanilla has no opinion
-about is replicated explicitly: the sphere's visual seed, so two players standing together watch the
-same sphere rather than two different ones, and its age, so someone who walks up to a sphere halfway
-through its life sees it halfway through rather than newly born. It also glides between position
-updates instead of snapping to them.
+Files are `config/tempestfx.json` and `config/tempestfx-server.json`. `/tempestfx reload` reloads the client config and the integrated server's config. Dedicated-server config is read on server start.
 
-Where the client still has a choice to make, it is made the same way everywhere: the entity a bolt
-struck breaks exact ties on entity id, and the discharge effect sorts by distance before capping its
-target list, because the order a level lists its entities is not the same on every client.
+Important server settings:
 
-Gameplay stays exactly additive to vanilla's. Near-miss damage excludes vanilla's real damage box
-(`x±3, y-3..y+9, z±3`, not a sphere), so nothing is ever hurt twice for one bolt, and a bolt vanilla
-marked as cosmetic — the skeleton horse trap, or anything a datapack spawns for show — does no
-damage here either, though it still flashes.
+| Setting | New default | Purpose |
+| --- | --- | --- |
+| `storm.enabled` | true | Harmless additional cloud activity during thunderstorms |
+| `storm.groundStrikes` | false | Opt-in extra real strikes |
+| `storm.maxCells` | 8 | Maximum active cells per dimension |
+| `storm.flashesPerSecond` | 0.12 | Mature-cell activity before lifecycle modulation |
+| `storm.broadcastDistance` | 1024 | Event subscription radius in blocks |
+| `nearMiss.physicalConduction` | true | Connected-surface and grounded-target approximation |
+| `nearMiss.sideFlash` | false | Optional short-range conductor discharge |
+| `nearMiss.igniteSeconds` | 0 | Extra ignition; vanilla fire behavior remains separate |
+| `ballLightning.enabled` | false | Experimental plasma-sphere gameplay |
 
-## Configuration
+The extra-strike target search examines at most 289 already-loaded columns near its candidate, favoring exposed height and lightning rods. This local search is an approximation; ordinary vanilla targeting and its lightning-rod behavior are unchanged. Damage and ignition remain server decisions. Cosmetic vanilla bolts do not receive additional gameplay damage.
 
-Two files, written on first run.
-
-`config/tempestfx.json` — looks, sounds, performance. Values are clamped on load, and a malformed or
-hand-edited file falls back to defaults instead of preventing startup.
-
-| Section | Notable keys |
-| --- | --- |
-| `general` | `enabled`, `debug`, `reducedFlashing` |
-| `lightning` | `geometryQuality`, `branchCount`, `thickness`, `glowStrength`, `flicker`, `coldTint`, `returnStrokes`, `scale`, `skySpread` |
-| `impact` | `shockwave`, `shockwaveStrength`, `sparks`, `smoke`, `debris`, `ash`, `airDistortion`, `airDistortionStrength`, `surfaceRipple`, `entityDischarge`, `entityDischargeRadius`, `entityDischargeMinSpeed`, `ashImprint`, `ashImprintSeconds`, `ballLightningEffects` |
-| `lighting` | `dynamicLighting`, `illuminationRadius`, `illuminationStrength`, `worldFlash`, `worldFlashTicks`, `distantBolts` |
-| `camera` | `screenFlash`, `flashStrength`, `cameraImpulse`, `impulseStrength` |
-| `audio` | `customThunder`, `thunderVolume`, `realisticSoundDelay`, `maxThunderDistance`, `giantRoll`, `giantRollChance`, `giantRollDistance` |
-| `performance` | `qualityPreset`, `maxParticles`, `renderDistance`, `lod`, `maxConcurrentEffects` |
-| `compatibility` | `shaderCompatibilityMode`, `bloomMode`, `customShaders` |
-
-`config/tempestfx-server.json` — gameplay. Separate on purpose, so an operator can hand it out or
-lock it down without touching anybody's visual settings.
-
-| Section | Keys |
-| --- | --- |
-| `nearMiss` | `enabled`, `radius` (9), `maxDamage` (5), `igniteSeconds` (2), `igniteFraction` (0.45), `affectMobs` |
-| `ballLightning` | `enabled`, `chancePerStrike` (0.05), `minimumSpawnDistance`, `minRadius`/`maxRadius`, `minSeconds`/`maxSeconds`, `damage` (6), `contactDamage`, `contactRadius`, `contactCooldownTicks`, `igniteSeconds`, `scorchGround` |
-
-Near-miss damage starts where vanilla's box ends (3 blocks) and falls to zero at `radius` on a
-squared curve. Ball lightning scorching a grass block also requires the `mobGriefing` game rule.
-
-### Accessibility
-
-`general.reducedFlashing` removes channel flicker, re-strikes and the whole multi-stroke sequence,
-caps the exposure flash and the camera impulse, and disables the sky-flash extension.
-`camera.screenFlash` and `camera.cameraImpulse` can also be turned off independently.
-
-Minecraft's own **Hide Lightning Flashes** option is respected: with it enabled, Thunderhead draws no
-exposure flash and requests no sky flash at all.
-
-## Debugging
-
-Enable `general.debug` for an on-screen counter of bolts, segments, particles, thunder queue, lights,
-discharges and imprints, plus the detected pipeline and whether the custom shaders loaded. Then:
+## Commands
 
 ```text
-/tempestfx strike           visual only, on the ground you are facing
-/tempestfx strike 40        visual only, further away
-/tempestfx strike 40 72 -15 visual only, at exact world coordinates
-/tempestfx strike --seed 12345
-/tempestfx strike 40 72 -15 --seed 12345
-/tempestfx strike water     visual only, forced surface type
-/tempestfx strike water --seed 12345
-/tempestfx strike-camera 20 --seed 12345
-/tempestfx directhit        visual only, simulates a bolt landing on you
-/tempestfx summon           a REAL bolt at your feet: vanilla damage, fire, and the visuals
-/tempestfx ball             a REAL ball lightning entity in front of you
-/tempestfx roll             a rolling thunder event on its own, with no lightning at all
-/tempestfx roll 8           the same, forced to eight seconds
-/tempestfx roll 8 50        eight seconds at fifty channels per second
-/tempestfx stress 20        20 visual strikes at once
-/tempestfx camera cinematic spectator capture preset: HUD off, no bobbing, smooth camera
-/tempestfx camera speed .06 set cinematic flight speed (0.01 to 0.5)
-/tempestfx camera off       restore saved options and game mode
+/tempestfx settings
+/tempestfx reload
+/tempestfx strike 40 --seed 12345
+/tempestfx type negative_ground 12345
+/tempestfx type positive_ground 12345
+/tempestfx type intracloud 12345
+/tempestfx type intercloud 12345
+/tempestfx stress 20
+/tempestfx summon
+/tempestfx ball
+/thunderstorm status
+/thunderstorm strike 152 71 197
 ```
 
-The distinction matters: `strike` and `directhit` draw and nothing else — no entity, no damage. Use
-`summon` and `ball` to test gameplay. Both are shortcuts for the vanilla `/summon` command and need
-the usual permission.
+`strike`, `type` and `stress` under `/tempestfx` are visual tests. `summon`, `ball` and `/thunderstorm strike` create real entities; server commands require operator permission. Server strike targets must already be loaded.
 
-## Compatibility philosophy
+## Development
 
-The mod owns the whole path a lightning bolt takes to the screen: it compiles its own GLSL programs,
-fills its own vertex buffers, draws into a framebuffer of its own, and applies the result to the frame
-after the game — and any shader pack — has finished producing the scene image. Nothing along the way
-asks which rendering pipeline is installed, because nothing along the way needs to know.
+[Build instructions](BUILDING.md), [architecture](ARCHITECTURE.md), [API](API.md), [physical approximations](docs/PHYSICAL_MODEL.md), [implementation/verification journal](docs/IMPLEMENTATION_STATUS.md).
 
-Occlusion still comes from the frame rather than from the mod: the effect target borrows whatever
-depth buffer the bound framebuffer has, read-only, for the duration of one pass. So terrain, water,
-entities and particles hide the effect exactly as they always did, in every pipeline, with no
-pack-specific API involved.
+`buildAll` tests the shared implementation and builds both loader jars. Test captures use disposable saves; source media in the neighboring project is not modified. No external shader assets are bundled.
 
-Every failure degrades instead of breaking. A program that will not compile drops the whole set back
-to Minecraft's shader objects; no depth to borrow, an incomplete framebuffer, a world rendered at
-another resolution or a pipeline where the composite point is never reached drops to drawing straight
-into the scene. Each case logs its reason once, and `compatibility.effectCompositor` and
-`compatibility.customShaders` select those paths by hand.
-
-Verified with Iris 1.8.12 under Complementary Unbound r5.8.1 and ARTShade V0.3.0FIX; OptiFine is
-untested rather than unsupported. See [`release/compatibility.md`](release/compatibility.md).
-
-## For mod developers
-
-Thunderhead has a small client-side API: raise your own lightning, style it, or react to every
-strike the mod draws. No packets, no registration, and it degrades to a no-op when the mod is
-absent so an optional integration cannot crash its host.
-
-```java
-TempestFxApi.triggerLightning(LightningEffect.builder()
-    .position(new Vec3d(x, y, z))
-    .seed(seed)
-    .style(LightningStyle.builder().thickness(1.8f).branchiness(1.4f).build())
-    .build());
-```
-
-Full reference, Gradle coordinates and the soft-dependency pattern: [API.md](API.md).
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for internals, [BUILDING.md](BUILDING.md) for reproducible
-builds, and [docs/LISTING.md](docs/LISTING.md) for the public name, store copy and keywords.
-
-## Credits and license
-
-Thunderhead is made by **GestSe**.
-
-Code and generated assets are available under the MIT License. Asset provenance is documented in
-`common/src/main/resources/assets/tempestfx/ASSET_LICENSE.md`.
+Made by **GestSe**. Code and original bundled assets: MIT. See [asset provenance](common/src/main/resources/assets/tempestfx/ASSET_LICENSE.md).

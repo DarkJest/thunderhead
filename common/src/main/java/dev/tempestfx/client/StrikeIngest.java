@@ -56,7 +56,7 @@ public final class StrikeIngest {
     public void clear() { observations.clear(); }
 
     /** Finds the entity the bolt came down on, if any. */
-    private StrikeTarget resolveTarget(ClientLevel level, Vec3d point) {
+    StrikeTarget resolveTarget(ClientLevel level, Vec3d point) {
         AABB box = new AABB(
             point.x() - DIRECT_HIT_HORIZONTAL, point.y() - DIRECT_HIT_BELOW, point.z() - DIRECT_HIT_HORIZONTAL,
             point.x() + DIRECT_HIT_HORIZONTAL, point.y() + DIRECT_HIT_ABOVE, point.z() + DIRECT_HIT_HORIZONTAL);

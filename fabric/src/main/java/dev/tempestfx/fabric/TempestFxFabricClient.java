@@ -57,11 +57,9 @@ public final class TempestFxFabricClient implements ClientModInitializer {
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client::tick);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(dev.tempestfx.storm.StormPacket.TYPE,
+            (packet, context) -> context.client().execute(() -> dev.tempestfx.storm.StormNetwork.receive(packet)));
         ClientLifecycleEvents.CLIENT_STOPPING.register(minecraft -> client.shutdown());
-        WorldRenderEvents.AFTER_ENTITIES.register(context -> {
-            if (context.matrixStack() != null) client.renderPackChannels(context.matrixStack(),
-                context.tickCounter().getGameTimeDeltaPartialTick(false));
-        });
         // LAST matches NeoForge's AFTER_WEATHER: terrain, particles and weather are already drawn.
         WorldRenderEvents.LAST.register(context -> {
             if (context.matrixStack() != null) {
@@ -206,6 +204,7 @@ public final class TempestFxFabricClient implements ClientModInitializer {
     }
 
     private static final class FabricPlatform implements ClientPlatform {
+        @Override public float thunderTransmission(Vec3d source) { return dev.tempestfx.client.AcousticEnvironment.transmission(source); }
         @Override
         public Path configDirectory() { return FabricLoader.getInstance().getConfigDir(); }
 

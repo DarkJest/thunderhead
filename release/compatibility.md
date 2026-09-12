@@ -1,32 +1,34 @@
-# Release compatibility matrix
+# Thunderhead 2.0 verification matrix
 
-This file is the source of truth for storefront claims. Update it after each manual run.
+Evidence is from local development runs on Windows 11, Java 21.0.12 and Radeon RX 570 (OpenGL 4.6). Exact releases of render loaders/packs matter. No row means universal compatibility with future versions.
 
-| Combination | Status | Evidence / action |
+| Configuration | Evidence | Scope / limitations |
 | --- | --- | --- |
-| Minecraft 1.21.1 + Fabric Loader 0.16.14 + Fabric API 0.116.15 | **Build verified** | `:fabric:build` must pass; complete one manual storm and command pass before publish. |
-| Minecraft 1.21.1 + NeoForge 21.1.248 | **Build verified** | `:neoforge:build` must pass; complete one manual storm and command pass before publish. |
-| Vanilla rendering, no external shader pack | **Implemented** | Record screenshot 7 and verify bolt, particles, shockwave, flash and thunder in-game. |
-| Iris 1.8.12 (NeoForge) + Complementary Unbound r5.8.1 | **Tested** | Channel, forks, impact particles, shockwave and air distortion render with the pack active and match the same seed rendered without it. Debug overlay reads `programs own \| compositor isolated`; no exception from the mod in the log. |
-| Iris, other packs and versions | **Pack-agnostic by construction, not individually tested** | The mod compiles its own programs and draws into its own framebuffer, applying the result after the pack has finished the scene, so no pack-specific behaviour is involved. Record versions before claiming any specific one. |
-| OptiFine / Oculus | **Not tested** | Nothing in the mod targets either, and neither has to cooperate for the effect to work. Do not claim compatibility without a run. |
-| Dedicated server with Thunderhead | **Implemented, manual validation required** | Verify near-miss damage and ball-lightning replication with two clients. |
-| Vanilla server, Thunderhead client | **Implemented, manual validation required** | Verify visual/audio features and absence of server gameplay additions. |
+| Fabric 0.16.14 / API 0.116.15, Minecraft 1.21.1 | Build and integrated-server runtime passed | Server packets, ground/cloud events and client render loaded; no Iris in this run |
+| NeoForge 21.1.248, Minecraft 1.21.1 | Build and integrated-server runtime passed | Current storm implementation delivered ground and cloud events |
+| NeoForge dedicated server + two NeoForge clients | 26 shared v2 events (41 in earlier pre-v2 run), zero mismatches or duplicate IDs | Clients capped at 30/60 FPS; loopback transport, not WAN latency certification |
+| Official vanilla 1.21.1 server + Thunderhead NeoForge client | Eight real vanilla bolts observed with protocol=false | Client-only visuals/audio work; no server-side Thunderhead gameplay |
+| Iris 1.8.12 + Sodium 0.6.13 + Complementary Unbound r5.8.1 | Repeated successful captures and storm runs | Isolated channel, surface lighting approximation and real-entity fallback inspected |
+| Iris 1.8.12 + ARTShade V0.3.0FIX | Successful final-candidate surface capture, run 1789247679418 | Channel visibility inspected; process saved world and exited normally |
+| Other packs/loaders, OptiFine, alternate depth renderers | Not individually tested | Best-effort isolated path; do not advertise as certified |
 
-## Minimum manual shader check
+## Render capabilities
 
-Run it once with no shader pack and once with a pack; the point of the check is that the two look the
-same.
+| Capability | Supported behavior |
+| --- | --- |
+| Channel shape and pulse timing | Mod-owned programs and exposure integration |
+| Occlusion | Available scene depth, read-only |
+| Surface lighting | Up to four channel samples, depth-reconstructed normals, limited visible-depth occlusion |
+| Cloud flash | Approximate local glow / configurable legacy sky flash; no access to pack density |
+| Pack-native exposure/reflections | Not guaranteed; unsuccessful native-material experiment removed |
+| Missing custom programs under a pack | True lightning entities return to the vanilla renderer; API-only channels are limited |
+| Missing/incompatible depth | Direct fallback plus retained legacy lighting state |
 
-1. Launch with the exact Iris version and pack named in the release notes.
-2. Enable `general.debug` and confirm the overlay reads `programs own | compositor isolated`. Anything
-   else means the mod fell back, and the log says why on the line it degraded.
-3. Run `/tempestfx strike-camera 20 --seed 12345` ten times. The same seed with and without the pack
-   must produce the same bolt: same width ladder, same wide glow, same flash.
-4. Confirm the channel is occluded by terrain, by water and by a block placed in front of it, and that
-   smoke and dust are occluded the same way. That is the borrowed depth buffer working.
-5. Confirm air distortion is visible along the shock front with the pack on.
-6. `/tempestfx ball` and confirm the sphere shell, core and ground pool are present, not arcs alone.
-7. Toggle the shader pack on and off mid-storm, resize the window, go fullscreen and back, press F1,
-   open a GUI, switch to third person, change dimensions and reload resources — then repeat one strike.
-8. Record the exact versions here; only then change storefront wording to "Tested".
+Depth alone cannot describe transparent layers, off-screen occluders or every pack's cloud/reflection pipeline. Screenshots prove the inspected behavior, not perfect optical transport.
+
+## Remaining verification limits
+
+- The local network test validates repeated event agreement, not every possible latency/loss/reconnect case; pure tests additionally exercise late/future/stale/deduplicated events.
+- No calibrated GPU-only timing or multi-vendor driver matrix is claimed. Recorded timings are CPU submission plus driver waits, with FPS caps and capture overhead noted.
+- Server target selection and conduction are bounded game approximations. Additional damaging storm strikes are opt-in; ordinary vanilla targeting is unchanged.
+- Test saves and screenshots are kept under ignored run directories. No test world, credentials or third-party shader archive is included in release jars.

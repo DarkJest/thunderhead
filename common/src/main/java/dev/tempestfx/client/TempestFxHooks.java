@@ -37,6 +37,10 @@ public final class TempestFxHooks {
         TempestFxClient current = client;
         return current == null ? 0 : current.skyFlashTicks();
     }
+    public static boolean suppressSkyFlash() {
+        TempestFxClient current = client;
+        return current != null && current.config().general.enabled && current.config().general.reducedFlashing;
+    }
 
     /**
      * Whether Thunderhead is drawing lightning itself.

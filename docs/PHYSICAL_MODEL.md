@@ -1,102 +1,54 @@
-# Physical model and explicit approximations
+# Thunderhead 2.0: physical model and limits
 
-## 1.3 — shared flash timeline
+Thunderhead is a bounded game simulation. The sources below inform its structure; its numerical distributions, damage values and appearance controls are not calibrated measurements of every real storm.
 
-A flash owns one generated channel tree and one immutable pulse plan. Contact effects consume that
-same plan, retaining the original position, seed, surface and per-event overrides. Pulses never invoke
-the geometry generator again. Explicit multi-contact flashes are not implemented yet.
+## Discharges
 
-The renderer evaluates a weak downward leader followed by a return front traveling from the ground
-toward the cloud. The model uses one block = one metre for propagation, and an approximate return-front
-speed of 100 million metres/second, consistent in order of magnitude with the
-[NWS explanation](https://www.weather.gov/safety/lightning-science-negative-charged-flash).
-This is normally much faster than one frame; it is intentionally not presented as a slow upward beam.
+One flash has an immutable channel tree and pulse plan. A weak leader precedes a return front; subsequent pulses reuse the same channel. Ground flashes include a short upward connecting segment. The return front uses approximately 100 million m/s with one block treated as one metre for propagation. This is normally faster than a frame, so exposure is integrated analytically rather than slowed into an upward beam.
 
-| Parameter | Current value | Interpretation |
-| --- | --- | --- |
-| Timeline unit | 1 tick = 50 ms | Minecraft simulation time, with fractional visual evaluation |
-| Visible leader duration | 20 ms Realistic / 60 ms Cinematic | Game-scale presentation approximation, not derived from storm field |
-| Relative leader brightness | 0.04 | Artistic luminance ratio |
-| Pulse decay time | 11 ms Realistic / 35 ms Cinematic | Optical presentation envelope, not an electrical current waveform |
-| Inter-pulse interval | 30–100 ms | Bounded illustrative interval, not a fitted climatological distribution |
-| Maximum repeats | 0–4 | User/budget cap |
-| Multi-stroke mixture | 75% of deterministic seed samples when enabled | Game variety parameter, not a universal measured rate |
-| Return-front speed | 100,000,000 m/s | Approximate order of magnitude; different strokes can vary |
+| Parameter | Implementation / interpretation |
+| --- | --- |
+| Time unit | 1 tick = 50 ms; visual evaluation retains fractional ticks |
+| Negative ground leader | 20 ms in Realistic, a game-scale presentation approximation |
+| Negative ground optical decay | 11 ms time constant in Realistic |
+| Return intervals | Illustrative bounded 30–100 ms range, not a fitted climatology |
+| Positive ground | Longer decay and predominantly single-pulse mixture |
+| Intracloud / intercloud | Distinct horizontal geometry, branching/wander and longer timing profiles |
+| Core radius | 0.055 blocks before scaling; a pixel footprint floor prevents dashed subpixel lines |
+| Radiance | Presentation exposure independent of pulse timing; reduced flashing caps it |
+| Cloud base | Configurable absolute fallback height, not shader-pack density geometry |
 
-Brightness integrates the exponential pulse envelope analytically over a frame interval, preserving
-integrated energy across 20/30/60/144 FPS in tests. Actual display RGB can saturate; this test does not
-claim calibrated photometry or identical screenshots at different frame rates.
+The Realistic backbone has 128 canonical segments. LOD retains a subset of its vertices and attached forks; geometry budgets preserve both endpoints. This stochastic geometry is not an electrostatic field solver. Explicit seeds control shape, not event identity.
 
-Contact particles, legacy sky-light extension and audio scheduling still execute on tick boundaries;
-their timing is rounded upward by less than 50 ms. Sub-tick world illumination and geometry-derived
-audio are subsequent work. Full server storm timing requires the planned network protocol.
+## Sound
 
-Reduced flashing replaces the channel pulse train with a monotone decay and suppresses repeat contact
-events. It is an effective override and does not erase saved preferences. Existing configs retain the
-Cinematic profile; new configs select Realistic. Profiles are independent of GPU quality settings.
+Up to eight equal-length trunk portions emit sound per pulse. Arrival uses distance / 343 m/s and the current listener position. Source weights limit aggregate loudness; all audio shares queue and voice budgets. A short local visibility test can reduce gain and select a muffled distant profile. This is not full acoustic ray tracing, frequency-dependent atmospheric propagation or physically exact reverberation. It can be disabled when another sound mod supplies obstruction.
 
-Realistic currently excludes impact rings, movement-triggered entity arcs, player-hit branch imprints
-and audio-triggered distant walls. Server ball-lightning settings remain separate and must be disabled
-by the operator if experimental gameplay is unwanted; client presentation cannot remove a real entity.
+Network arrivals seek existing time. Past contact visuals are not replayed; both channel and legacy audio preserve future acoustic arrivals while dropping already-past cues. Tick scheduling introduces up to roughly one tick of timing quantization.
 
-## 1.4 — channel geometry and explicit categories
+## Storms and gameplay
 
-Realistic rendering generates a fixed 128-segment canonical backbone. Lower detail retains a subset
-of its vertices; forks use independent seeds and can only attach to retained vertices. Hard budgets
-always preserve the first and last backbone points. This is a stochastic geometric model, not a
-simulation of air breakdown or a solution of Maxwell's equations.
+Server cells have finite charge, drift, growth and decay, driven by Minecraft's thunder state. Default mature activity is 0.12 flashes/s per cell, with at most eight cells per dimension. Category mixture and lifecycle are game tuning. Only already-loaded terrain is considered for optional extra ground strikes.
 
-The visible core half-width is 0.055 blocks before user scaling and a screen-visibility floor. It is
-not a measurement of plasma radius. Geometry carries relative branch brightness; event intensity is
-applied once at rendering. The fallback cloud base is an absolute world Y=192, configurable as
-lightning.cloudBaseY; terrain above it raises the fallback source to retain at least 32 blocks of height.
-Shader-pack cloud meshes can differ: this fallback does not claim to locate their actual density field.
+Ordinary vanilla targeting, direct damage, ignition, copper and conversions remain vanilla responsibilities. Additional ground strikes are separately opt-in. Their local 17x17 target search favors height and rods; it is not a replacement for vanilla's broader rod targeting rule.
 
-Kinds are explicit API inputs. Vanilla bolt entities remain NEGATIVE_GROUND. POSITIVE_GROUND uses a
-longer illustrative decay and mostly single-pulse mixture; INTRACLOUD/INTERCLOUD use cloud endpoints,
-a longer envelope, and no ground aftermath. Their timing distributions are still game tuning. Natural
-server selection and storm-wide category rates belong to the later server simulation stage.
+Additional ground-current damage uses a connected sampled surface, material conductance and ground/water contact. Gaps break the path. An optional short side flash requires a conductor and a clear loaded path. Damage is a game balance value, not a medical/electrical injury model. Bounding-box overlap excludes vanilla's own strike volume. Cosmetic events cannot apply additional gameplay damage. Ball lightning is an experimental separate feature, off in new server configs.
 
-Use `/tempestfx type intracloud 12345` (or intercloud, positive_ground, negative_ground) for visual tests.
-The old four-argument StrikeOptions constructor defaults to NEGATIVE_GROUND, preserving existing callers.
+## Lighting and shaders
 
-## Shader evidence (continued)
+The supported channel path owns its programs and framebuffer and composites after the scene. Surface lighting reconstructs visible position/normals from a private depth snapshot and samples up to four portions of active channels. Radius zero disables the field. The visibility approximation uses eight depth samples; offscreen occluders and transparent/cloud volumes cannot be recovered from that data.
 
-### 1.5.0-dev surface lighting limits
+Scene color has already been tone mapped. This is not access to physical albedo, native HDR exposure, cloud density or reflection buffers. The tested native-material experiment was removed because a pack replaced channel RGBA and wrote objectionable depth. Stock shader packs do not have a universal interface for physically consistent light injection.
 
-The surface-lighting option reconstructs view-space position and screen-derived normals from a private
-snapshot of the available depth buffer. Up to four samples are selected along active channels. Their
-power follows the same integrated pulse envelope; lighting.illuminationRadius controls the influence
-radius and zero disables it. The post pass works on already tone-mapped color, so its material response
-is approximate. Eight visibility samples can only find obstacles represented in the visible depth.
+Capability and combination-specific results are in release/compatibility.md. Full volumetric cloud lighting, pack-native reflections and all future shader packs are not guaranteed.
 
-It does not inject light into shader-pack reflections, cloud density or exposure. Transparent-water
-and offscreen occlusion require additional integration. These missing capabilities keep full 1.5
-acceptance open. Failed isolation retains the old pool/sky-flash state rather than silently deleting it.
+## Accessibility
 
-An independent opt-in compatibility.packNativeChannels mode submits the core through Iris's lightning
-material wrapper before the pack finishes the frame. The wrapper sets/restores the pack's lightning
-entity material ID; plain RenderType.lightning did not supply that context. It is reflectively resolved
-and format-checked, with isolated fallback when the internal Iris interface is absent. This adapter is
-version-sensitive and requires an explicit test per supported Iris version. The pack controls its material,
-bloom and exposure; the late pass omits the duplicate core. This can make the channel available to
-effects a pack implements, but does not guarantee any particular reflection or cloud-lighting algorithm.
-The option defaults off and the isolated core remains available without a shader pack or after failure.
-Packs may replace input colors and alpha rather than simply grade them. In that case pack-native mode
-cannot preserve the calibrated pulse-brightness envelope; use isolated channels for timing/brightness control.
+Reduced flashing preserves saved preferences, substitutes monotone channel decay, suppresses native sky-flash returns and admits at most one new visual flash per second across the storm. Incoming primary API notifications and appropriate audio still work. The setting does not constitute a medical safety certification.
 
-Development captures: add -PtempestfxCapture to the NeoForge run with a disposable quick-play save.
-Add -PtempestfxCaptureScene=surface for a stone test plane/wall and low camera; this deliberately
-modifies only the selected disposable world. The finite harness saves screenshots and exits normally.
-Capture overhead makes reported FPS unsuitable as a benchmark. -PtempestfxCaptureFps sets the cap.
+## Sources
 
-1.2.1 finite captures on Radeon RX 570 with NeoForge 21.1.248:
-
-- Vanilla: run 1789238547404; examined before/strike frames 119/122. Visible channel and scene flash.
-- Iris 1.8.12 + Sodium 0.6.13 + Complementary Unbound r5.8.1: run 1789238635301;
-  examined strike frame 122. Channel and impact visible; log says isolated compositor.
-- Both runs terminated normally and saved their disposable worlds. Screenshots live in the ignored
-  development run directory; they are inspection evidence, not bundled assets.
-
-These captures do not certify transparent-water depth, accurate cloud occlusion, reflections,
-frame-time budgets, other GPUs, Fabric runtime or other shader packs.
+- [NOAA NSSL: Lightning Types](https://www.nssl.noaa.gov/education/svrwx101/lightning/types/) — discharge categories and leader/return-stroke direction.
+- [NWS: Negative Flash](https://www.weather.gov/safety/lightning-science-negative-charged-flash) — leader attachment and approximate propagation speeds.
+- [NWS: Return Stroke](https://www.weather.gov/safety/lightning-science-return-stroke) — channel reuse and upward optical propagation.
+- [Iris uniform reference](https://shaders.properties/current/reference/uniforms/overview/) — interfaces available to packs; a declared uniform is not proof that a pack uses it.

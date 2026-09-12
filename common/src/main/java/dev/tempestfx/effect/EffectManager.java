@@ -22,6 +22,8 @@ public final class EffectManager {
     private final List<ActiveLightningEffect> lightningView = Collections.unmodifiableList(lightning);
     private final List<ShockwaveEffect> shockwaveView = Collections.unmodifiableList(shockwaves);
     private final LightningEffectFactory factory;
+    private ActiveLightningEffect latest;
+    public ActiveLightningEffect latest() { return latest; }
 
     public EffectManager(LightningEffectFactory factory) { this.factory = factory; }
 
@@ -30,18 +32,37 @@ public final class EffectManager {
     }
 
     public void onFlash(LightningStrikeFxEvent event, Vec3d camera, TempestConfig config, FlashTimeline timeline) {
+        onFlash(event, camera, config, timeline, 0);
+    }
+    public void onFlash(LightningStrikeFxEvent event, Vec3d camera, TempestConfig config, FlashTimeline timeline, int age) {
+        onFlash(event, camera, config, timeline, age, true);
+    }
+    public void onFlash(LightningStrikeFxEvent event, Vec3d camera, TempestConfig config, FlashTimeline timeline, int age, boolean visible) {
         double distance = camera.distanceTo(event.position());
-        if (distance > config.performance.renderDistance) return;
+        latest = null;
+        // A far endpoint is not a far channel. Explicit origins may span the listener's range.
+        // The generous precheck includes possible forks; exact generated bounds refine it below.
+        var origin = factory.originFor(event, LightningLod.FULL, config);
+        var envelope = dev.tempestfx.math.Bounds3d.empty().include(origin).include(event.position());
+        double reach = origin.distanceTo(event.position()) * 4 + 64;
+        if (envelope.distanceTo(camera) - reach > Math.max(config.performance.renderDistance, config.audio.maxThunderDistance)) return;
+        distance = envelope.distanceTo(camera);
 
         LightningLod lod = config.performance.lod ? LightningLod.forDistance(distance) : LightningLod.FULL;
         int limit = config.performance.maxConcurrentEffects;
-        while (lightning.size() >= limit) lightning.removeFirst();
-        lightning.add(factory.create(event, lod, config, timeline));
+        latest = factory.create(event, lod, config, timeline);
+        distance = latest.geometry().bounds().distanceTo(camera);
+        if (distance > Math.max(config.performance.renderDistance, config.audio.maxThunderDistance)) { latest = null; return; }
+        if (age > 0) latest.seek(age);
+        if (visible && distance <= config.performance.renderDistance && latest.alive()) {
+            while (lightning.size() >= limit) lightning.removeFirst();
+            lightning.add(latest);
+        }
     }
 
     public void onContact(LightningStrikeFxEvent event, Vec3d camera, TempestConfig config) {
         if (!event.kind().contactsGround()) return;
-        if (config.impact.shockwave && !config.realistic() && camera.distanceTo(event.position()) < 256) {
+        if (config.impact.shockwave && !config.realistic() && camera.distanceTo(event.position()) < Math.min(256, config.performance.renderDistance)) {
             int limit = config.performance.maxConcurrentEffects;
             while (shockwaves.size() >= limit) shockwaves.removeFirst();
             shockwaves.add(new ShockwaveEffect(event));
@@ -65,7 +86,7 @@ public final class EffectManager {
 
     public List<ShockwaveEffect> shockwaves() { return shockwaveView; }
 
-    public void clear() { lightning.clear(); shockwaves.clear(); }
+    public void clear() { lightning.clear(); shockwaves.clear(); latest = null; }
 
     public int activeCount() { return lightning.size() + shockwaves.size(); }
 

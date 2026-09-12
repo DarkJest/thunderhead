@@ -15,6 +15,27 @@ neoForge {
         mappingsVersion = '2024.11.17'
     }
     runs {
+        server {
+            server()
+            gameDirectory = project.file('run-server')
+            programArguments.add('--nogui')
+        }
+        qaClient {
+            client()
+            gameDirectory = project.file('run-qa-client')
+            programArguments.addAll('--username', 'ThunderQA1', '--quickPlayMultiplayer', '127.0.0.1:25589')
+            systemProperty 'tempestfx.capture', 'true'
+            systemProperty 'tempestfx.multiplayerCapture', 'true'
+            systemProperty 'tempestfx.captureFps', '30'
+        }
+        qaClient2 {
+            client()
+            gameDirectory = project.file('run-qa-client2')
+            programArguments.addAll('--username', 'ThunderQA2', '--quickPlayMultiplayer', '127.0.0.1:25589')
+            systemProperty 'tempestfx.capture', 'true'
+            systemProperty 'tempestfx.multiplayerCapture', 'true'
+            systemProperty 'tempestfx.captureFps', '60'
+        }
         client {
             client()
             systemProperty 'tempestfx.smokeStrike', 'true'

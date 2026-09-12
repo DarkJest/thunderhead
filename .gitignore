@@ -3,6 +3,9 @@ build/
 **/build/
 run/
 **/run/
+**/run-server/
+**/run-vanilla/
+**/run-qa-client*/
 .idea/
 *.iml
 *.log

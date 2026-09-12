@@ -9,8 +9,20 @@ import dev.tempestfx.math.FxMath;
 public final class ServerConfig {
     public NearMiss nearMiss = new NearMiss();
     public BallLightning ballLightning = new BallLightning();
+    public Storm storm = new Storm();
+    public static final class Storm {
+        public boolean enabled = true;
+        /** Explicit server opt-in for extra damaging strikes. Cloud activity is harmless by default. */
+        public boolean groundStrikes = false;
+        public int maxCells = 8;
+        public float flashesPerSecond = .12f;
+        public float cloudBaseY = 192;
+        public float broadcastDistance = 1024;
+    }
 
     public static final class NearMiss {
+        public boolean physicalConduction = true;
+        public boolean sideFlash = false;
         /** Damage entities that were close to a strike but outside vanilla's own damage box. */
         public boolean enabled = true;
         /** Outer radius of the effect, in blocks. Vanilla already covers the inner 3. */
@@ -18,7 +30,7 @@ public final class ServerConfig {
         /** Damage at the edge of vanilla's box, falling to zero at {@link #radius}. */
         public float maxDamage = 5f;
         /** Seconds of ignition for targets very close to the strike; 0 disables ignition. */
-        public float igniteSeconds = 2f;
+        public float igniteSeconds = 0f;
         /** Fraction of {@link #radius} within which ignition can happen. */
         public float igniteFraction = 0.45f;
         /** Also apply to non-player mobs. */
@@ -27,7 +39,7 @@ public final class ServerConfig {
 
     public static final class BallLightning {
         /** Allow strikes to leave ball lightning behind. */
-        public boolean enabled = true;
+        public boolean enabled = false;
         /** Probability per strike, 0..1. Real ball lightning is rare, and so is this. */
         public float chancePerStrike = 0.05f;
         /** Only spawn when the strike is at least this far from any player, to avoid instant hits. */
@@ -51,6 +63,11 @@ public final class ServerConfig {
     public ServerConfig validate() {
         if (nearMiss == null) nearMiss = new NearMiss();
         if (ballLightning == null) ballLightning = new BallLightning();
+        if (storm == null) storm = new Storm();
+        storm.maxCells = FxMath.clamp(storm.maxCells, 1, 8);
+        storm.flashesPerSecond = FxMath.clamp(storm.flashesPerSecond, .01f, 1f);
+        storm.cloudBaseY = FxMath.clamp(storm.cloudBaseY, 64f, 1024f);
+        storm.broadcastDistance = FxMath.clamp(storm.broadcastDistance, 128f, 2048f);
 
         nearMiss.radius = FxMath.clamp(nearMiss.radius, 3.1f, 48f);
         nearMiss.maxDamage = FxMath.clamp(nearMiss.maxDamage, 0f, 40f);

@@ -24,6 +24,7 @@ public abstract class ClientLevelMixin {
      */
     @Inject(method = "getSkyFlashTime", at = @At("RETURN"), cancellable = true, require = 0)
     private void tempestfx$extendSkyFlash(CallbackInfoReturnable<Integer> callbackInfo) {
+        if (TempestFxHooks.suppressSkyFlash()) { callbackInfo.setReturnValue(0); return; }
         int requested = TempestFxHooks.skyFlashTicks();
         if (requested > callbackInfo.getReturnValueI()) callbackInfo.setReturnValue(requested);
     }

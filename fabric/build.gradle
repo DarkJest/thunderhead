@@ -7,7 +7,14 @@ base { archivesName = 'thunderhead-fabric' }
 
 loom {
     runs {
-        client { client() }
+        client {
+            client()
+            if (project.hasProperty('tempestfxWorld')) programArgs '--quickPlaySingleplayer', project.property('tempestfxWorld').toString()
+            if (project.hasProperty('tempestfxCapture')) {
+                vmArg '-Dtempestfx.capture=true'
+                if (project.hasProperty('tempestfxCaptureScene')) vmArg '-Dtempestfx.captureScene=' + project.property('tempestfxCaptureScene')
+            }
+        }
     }
     mods {
         tempestfx {

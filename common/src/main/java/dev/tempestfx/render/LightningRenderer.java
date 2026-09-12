@@ -71,23 +71,24 @@ public final class LightningRenderer {
             ? rgb(style.coreColor(), 1f)
             : new float[] { 0.97f, 0.99f, 1f };
 
-        renderLayer(effect, pose, consumer, camera, partialTick, brightness,
+        float radiance = config.realistic() && !config.general.reducedFlashing ? config.lightning.radiance : 1f;
+        renderLayer(effect, pose, consumer, camera, partialTick, radiance,
             OUTER_WIDTH * thickness, minWidth, outer[0], outer[1], outer[2], 0.085f * glow, profile, config.general.reducedFlashing);
-        renderLayer(effect, pose, consumer, camera, partialTick, brightness,
+        renderLayer(effect, pose, consumer, camera, partialTick, radiance,
             INNER_WIDTH * thickness, minWidth, inner[0], inner[1], inner[2], 0.24f * glow, profile, config.general.reducedFlashing);
-        renderLayer(effect, pose, consumer, camera, partialTick, brightness,
+        renderLayer(effect, pose, consumer, camera, partialTick, radiance,
             CORE_WIDTH * thickness, minWidth, core[0], core[1], core[2], 1f, profile, config.general.reducedFlashing);
     }
 
     private void renderLayer(ActiveLightningEffect effect, PoseStack.Pose pose, VertexConsumer consumer,
-                             Vec3d camera, float partialTick, float brightness, double layerWidth,
+                             Vec3d camera, float partialTick, float radiance, double layerWidth,
                              double minWidth, float red, float green, float blue, float alphaScale,
                              ShaderPackProfile profile, boolean reducedFlashing) {
         if (alphaScale <= 0) return;
         for (LightningSegment segment : effect.segments()) {
             if (!effect.segmentVisible(segment, partialTick)) continue;
             float strength = effect.segmentBrightness(segment, partialTick, reducedFlashing)
-                * profile.liftIntensity((float) segment.intensity());
+                * profile.liftIntensity((float) segment.intensity()) * radiance;
             float alpha = Math.min(1f, strength * alphaScale);
             if (alpha <= 0.002f) continue;
             double startWidth = Math.max(segment.startWidth() * layerWidth, minWidth);

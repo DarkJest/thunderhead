@@ -17,4 +17,10 @@ public record Bounds3d(Vec3d min, Vec3d max) {
             && point.y() >= min.y() && point.y() <= max.y()
             && point.z() >= min.z() && point.z() <= max.z();
     }
+    public double distanceTo(Vec3d point) {
+        double x = Math.max(0, Math.max(min.x()-point.x(), point.x()-max.x()));
+        double y = Math.max(0, Math.max(min.y()-point.y(), point.y()-max.y()));
+        double z = Math.max(0, Math.max(min.z()-point.z(), point.z()-max.z()));
+        return Math.sqrt(x*x+y*y+z*z);
+    }
 }

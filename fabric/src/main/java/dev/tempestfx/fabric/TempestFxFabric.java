@@ -27,6 +27,14 @@ import net.minecraft.world.entity.LightningBolt;
 public final class TempestFxFabric implements ModInitializer {
     @Override
     public void onInitialize() {
+        net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback.EVENT.register((dispatcher, access, selection) -> dev.tempestfx.server.StormCommands.register(dispatcher));
+        net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playS2C().register(dev.tempestfx.storm.StormPacket.TYPE, dev.tempestfx.storm.StormPacket.CODEC);
+        dev.tempestfx.storm.StormNetwork.installServer((player, packet) -> {
+            if (net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(player, dev.tempestfx.storm.StormPacket.TYPE))
+                net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player, packet);
+        });
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_WORLD_TICK.register(dev.tempestfx.server.StormServer::tick);
+        ServerLifecycleEvents.SERVER_STOPPED.register(server -> dev.tempestfx.server.StormServer.clear());
         for (ThunderProfile profile : ThunderProfile.values()) {
             ResourceLocation id = TempestSounds.id(profile);
             TempestSounds.bind(profile, Registry.register(BuiltInRegistries.SOUND_EVENT, id,

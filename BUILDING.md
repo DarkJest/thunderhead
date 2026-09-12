@@ -25,8 +25,8 @@ JAVA_HOME=/path/to/jdk-21 ./gradlew clean buildAll
 
 Artifacts:
 
-- `fabric/build/libs/thunderhead-fabric-1.0.0.jar`
-- `neoforge/build/libs/thunderhead-neoforge-1.0.0.jar`
+- `fabric/build/libs/thunderhead-fabric-2.0.0.jar`
+- `neoforge/build/libs/thunderhead-neoforge-2.0.0.jar`
 
 `buildAll` runs the shared unit tests and builds and remaps both loader targets.
 
@@ -93,7 +93,7 @@ obfuscated target, so an empty or missing mapping is the fastest signal that a m
 matches the game:
 
 ```bash
-unzip -p fabric/build/libs/thunderhead-fabric-1.0.0.jar tempestfx-fabric-refmap.json
+unzip -p fabric/build/libs/thunderhead-fabric-2.0.0.jar thunderhead-fabric-refmap.json
 ```
 
 Four hooks are expected: `ClientLevel#addEntity`, `ClientLevel#getSkyFlashTime`,

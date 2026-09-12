@@ -1,6 +1,8 @@
 {
-  "option.tempestfx.pack_native_channels": "Канал через шейдерпак",
-  "option.tempestfx.pack_native_channels.tooltip": "Экспериментально: материал молнии шейдерпака. Некоторые паки заменяют яркость импульсов и цвет. Выключите для управляемого вида импульсов Thunderhead.",
+  "option.tempestfx.radiance": "Яркость реалистичного канала",
+  "option.tempestfx.channel_thunder": "Гром вдоль канала",
+  "option.tempestfx.shelter_attenuation": "Приглушать гром за препятствиями",
+  "option.tempestfx.shelter_attenuation.tooltip": "Локальное приближение. Отключите, если препятствия уже учитывает другой звуковой мод.",
   "option.tempestfx.surface_lighting": "Освещение поверхностей",
   "option.tempestfx.surface_lighting.tooltip": "В реалистичном режиме: приближённый свет по глубине видимой сцены. Не добавляет отражения и объёмное освещение облаков шейдерпака.",
   "option.tempestfx.realism": "Представление молнии",

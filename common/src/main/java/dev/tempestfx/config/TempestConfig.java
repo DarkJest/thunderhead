@@ -30,6 +30,8 @@ public final class TempestConfig {
     }
 
     public static final class Lightning {
+        /** Presentation exposure for the thin realistic channel, independent of pulse timing. */
+        public float radiance = 4f;
         public int geometryQuality = 7;
         public int branchCount = 18;
         public float thickness = 1f;
@@ -93,6 +95,8 @@ public final class TempestConfig {
     }
 
     public static final class Audio {
+        public boolean channelThunder = true;
+        public boolean shelterAttenuation = true;
         public boolean customThunder = true;
         /** Lets a player keep vanilla's lightning sounds when another mod relies on them. */
         public boolean suppressVanillaThunder = true;
@@ -116,8 +120,6 @@ public final class TempestConfig {
     }
 
     public static final class Compatibility {
-        /** Opt-in: channels enter the pack's normal lightning material, bloom and exposure pass. */
-        public boolean packNativeChannels = false;
         public RenderCompatibilityMode shaderCompatibilityMode = RenderCompatibilityMode.AUTO;
         public BloomMode bloomMode = BloomMode.AUTO;
         /** Use the bundled core shaders; falls back to vanilla programs when disabled or broken. */
@@ -146,6 +148,7 @@ public final class TempestConfig {
         if (compatibility.bloomMode == null) compatibility.bloomMode = BloomMode.AUTO;
 
         lightning.geometryQuality = FxMath.clamp(lightning.geometryQuality, 3, 9);
+        lightning.radiance = FxMath.clamp(lightning.radiance, 1f, 8f);
         lightning.branchCount = FxMath.clamp(lightning.branchCount, 0, 64);
         lightning.thickness = FxMath.clamp(lightning.thickness, 0.25f, 4f);
         lightning.glowStrength = FxMath.clamp(lightning.glowStrength, 0f, 3f);
@@ -181,6 +184,13 @@ public final class TempestConfig {
     }
 
     // Accessibility is an effective override, never a destructive edit of saved preferences.
+    public void applyQualityPreset(QualityPreset preset) {
+        performance.qualityPreset = preset;
+        lightning.geometryQuality = switch(preset) { case LOW -> 5; case MEDIUM -> 6; case HIGH -> 7; case ULTRA -> 8; };
+        performance.maxParticles = switch(preset) { case LOW -> 512; case MEDIUM -> 1024; case HIGH -> 2048; case ULTRA -> 4096; };
+        performance.maxConcurrentEffects = switch(preset) { case LOW -> 16; case MEDIUM -> 32; case HIGH -> 48; case ULTRA -> 64; };
+        lighting.surfaceLighting = preset != QualityPreset.LOW;
+    }
     public int effectiveReturnStrokes() { return general.reducedFlashing ? 0 : lightning.returnStrokes; }
     public boolean realistic() { return general.profile == RealismProfile.REALISTIC; }
     public boolean effectiveFlicker() { return !general.reducedFlashing && lightning.flicker; }

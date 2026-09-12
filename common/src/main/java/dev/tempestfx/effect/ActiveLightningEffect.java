@@ -41,6 +41,7 @@ public final class ActiveLightningEffect {
     }
 
     public void tick() { age++; }
+    public void seek(int ticks) { age = Math.max(0, ticks); lastSample = age; }
 
     public boolean alive() { return age < Math.max(7, timeline.durationTicks()); }
 

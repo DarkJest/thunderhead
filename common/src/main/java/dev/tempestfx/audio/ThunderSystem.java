@@ -8,6 +8,8 @@ import dev.tempestfx.math.Vec3d;
 import dev.tempestfx.platform.ClientPlatform;
 import java.util.ArrayList;
 import java.util.List;
+import dev.tempestfx.lightning.FlashTimeline;
+import dev.tempestfx.lightning.LightningGeometry;
 
 /**
  * Schedules thunder at the speed of sound.
@@ -26,6 +28,9 @@ public final class ThunderSystem {
     public static final int MAX_VOICES_PER_WINDOW = 18;
 
     private final List<ScheduledThunder> scheduled = new ArrayList<>();
+    private final List<Wave> waves = new ArrayList<>();
+    private long clock;
+    private TempestConfig waveConfig = new TempestConfig();
     private final ThunderSoundStrategy strategy;
     private final ClientPlatform platform;
     private final VoiceBudget budget;
@@ -56,12 +61,46 @@ public final class ThunderSystem {
         onStrike(event, listener, config, false);
     }
 
+    /** One acoustic event per flash; every return pulse reuses the same channel sources. */
+    public void onChannelFlash(LightningStrikeFxEvent event, LightningGeometry geometry, FlashTimeline timeline, TempestConfig config) {
+        onChannelFlash(event, geometry, timeline, config, 0);
+    }
+    public void onChannelFlash(LightningStrikeFxEvent event, LightningGeometry geometry, FlashTimeline timeline, TempestConfig config, int elapsed) {
+        waveConfig = config;
+        if (!config.audio.customThunder || config.audio.thunderVolume <= 0) return;
+        var options = event.options().thunder();
+        if (options != null && options.voice() == ThunderVoice.SILENT) return;
+        var sources = ChannelAcoustics.sources(geometry);
+        for (var pulse : timeline.pulses()) for (var source : sources) {
+            if (waves.size() + scheduled.size() >= MAX_PENDING) return;
+            double delay = !config.audio.realisticSoundDelay ? 0 : options != null && !options.delayFromDistance()
+                ? options.delayTicks() : platform.cameraPosition().distanceTo(source.position()) / 343.0 * 20;
+            if (elapsed > 0 && elapsed - pulse.atTicks() > delay + 1) continue;
+            float gain = event.intensity() * pulse.strength() * source.weight();
+            if (options != null) gain *= options.volume();
+            waves.add(new Wave(source.position(), clock + pulse.atTicks() - elapsed, gain, options));
+        }
+    }
+
     /**
      * @param headOnly play only the sharp opening layers and drop the long tail, because a rolling
      *                 thunder event is already covering the body and the decay. Without this the two
      *                 paths stack and a single strike rumbles for the better part of twenty seconds.
      */
     public void onStrike(LightningStrikeFxEvent event, Vec3d listener, TempestConfig config, boolean headOnly) {
+        scheduleLegacy(event, listener, config, headOnly, 0);
+    }
+
+    /** Past optical contacts still have future acoustic arrivals. Do not replay their visuals. */
+    public void onPastContacts(LightningStrikeFxEvent event, FlashTimeline timeline, int elapsed, Vec3d camera, TempestConfig config) {
+        for (var pulse : timeline.pulses()) {
+            if (pulse.atTicks() > elapsed) continue;
+            var stroke = event.asStroke(event.position(), event.seed(), event.intensity()*pulse.strength(), event.environment(), pulse.index());
+            scheduleLegacy(stroke, camera, config, false, elapsed-pulse.atTicks());
+        }
+    }
+
+    private void scheduleLegacy(LightningStrikeFxEvent event, Vec3d listener, TempestConfig config, boolean headOnly, double elapsed) {
         if (!config.audio.customThunder || config.audio.thunderVolume <= 0) return;
         ThunderOptions options = event.options().thunder();
         if (options != null && options.voice() == ThunderVoice.SILENT) return;
@@ -82,10 +121,12 @@ public final class ThunderSystem {
             if (headOnly && layer.extraDelayTicks() > 0) continue;
             float volume = ThunderMath.spatialVolume(distance, eventGain * layer.gain());
             if (volume <= 0) continue;
-            int delay = propagation + layer.extraDelayTicks();
+            double remaining = propagation + layer.extraDelayTicks() - elapsed;
+            if (elapsed > 0 && remaining < -1) continue;
+            int delay = (int) Math.ceil(remaining);
             if (delay <= 0) {
                 play(layer.profile(), event.position(), volume, layer.pitch());
-            } else if (scheduled.size() < MAX_PENDING) {
+            } else if (scheduled.size() + waves.size() < MAX_PENDING) {
                 scheduled.add(new ScheduledThunder(delay, layer.profile(), event.position(), volume, layer.pitch()));
             }
         }
@@ -110,7 +151,9 @@ public final class ThunderSystem {
     }
 
     public void tick() {
+        clock++;
         budget.tick();
+        tickWaves();
         for (int index = scheduled.size() - 1; index >= 0; index--) {
             ScheduledThunder pending = scheduled.get(index).next();
             if (pending.ticks() <= 0) {
@@ -122,13 +165,47 @@ public final class ThunderSystem {
         }
     }
 
+    public void tick(TempestConfig config) {
+        waveConfig = config;
+        if (!config.general.enabled || !config.audio.customThunder || config.audio.thunderVolume <= 0) { clear(); return; }
+        tick();
+    }
+
+    private void tickWaves() {
+        if (!waveConfig.general.enabled || !waveConfig.audio.customThunder) { waves.clear(); return; }
+        Vec3d camera = platform.cameraPosition();
+        for (int i = 0; i < waves.size();) {
+            Wave wave = waves.get(i);
+            double age = clock - wave.emittedAt();
+            double distance = camera.distanceTo(wave.position());
+            double delay = !waveConfig.audio.realisticSoundDelay ? 0
+                : wave.options() != null && !wave.options().delayFromDistance() ? wave.options().delayTicks()
+                : distance / 343.0 * 20;
+            if (age > 600) { waves.remove(i); continue; }
+            if (age < delay) { i++; continue; }
+            waves.remove(i);
+            if (distance > waveConfig.audio.maxThunderDistance) continue;
+            float gain = ThunderMath.thunderGain(distance, wave.gain(), waveConfig.audio.thunderVolume);
+            if (gain <= 0 || !budget.claim()) continue;
+            float transmission = waveConfig.audio.shelterAttenuation ? platform.thunderTransmission(wave.position()) : 1;
+            transmission = Float.isFinite(transmission) ? Math.max(0, Math.min(1, transmission)) : 1;
+            ThunderProfile named = wave.options() == null ? null : wave.options().voice().profile();
+            ThunderProfile profile = named != null ? named : transmission < .8 || distance > 160
+                ? ThunderProfile.DISTANT_THUNDER : distance < 40 ? ThunderProfile.CLOSE_HEAVY : ThunderProfile.MEDIUM_RUMBLE;
+            float volume = ThunderMath.spatialVolume(distance, gain * transmission);
+            platform.playThunder(profile, wave.position(), volume, transmission < .8 ? .9f : 1f);
+            listener.onPlayed(profile, wave.position(), volume);
+        }
+    }
+
     /** Drops queued thunder that belongs to a level the player already left. */
     public void clear() {
         scheduled.clear();
+        waves.clear();
         budget.clear();
     }
 
-    public int pendingCount() { return scheduled.size(); }
+    public int pendingCount() { return scheduled.size() + waves.size(); }
 
     /** Clips started inside the current window; exposed for the debug overlay and tests. */
     public int voicesInWindow() { return budget.started(); }
@@ -148,4 +225,5 @@ public final class ThunderSystem {
     private record ScheduledThunder(int ticks, ThunderProfile profile, Vec3d position, float volume, float pitch) {
         ScheduledThunder next() { return new ScheduledThunder(ticks - 1, profile, position, volume, pitch); }
     }
+    private record Wave(Vec3d position, double emittedAt, float gain, ThunderOptions options) {}
 }
