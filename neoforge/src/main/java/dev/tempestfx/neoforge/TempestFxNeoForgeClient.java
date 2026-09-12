@@ -9,7 +9,6 @@ import dev.tempestfx.TempestFx;
 import dev.tempestfx.audio.TempestSounds;
 import dev.tempestfx.audio.ThunderProfile;
 import dev.tempestfx.client.TempestFxClient;
-import dev.tempestfx.client.TempestOptionsScreen;
 import dev.tempestfx.entity.TempestEntities;
 import dev.tempestfx.math.Vec3d;
 import dev.tempestfx.platform.ClientPlatform;
@@ -18,8 +17,6 @@ import dev.tempestfx.render.EmptyLightningRenderer;
 import dev.tempestfx.render.TempestShaders;
 import java.nio.file.Path;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.options.VideoSettingsScreen;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -36,7 +33,6 @@ import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
 
@@ -58,7 +54,6 @@ public final class TempestFxNeoForgeClient {
         NeoForge.EVENT_BUS.addListener(this::renderWorld);
         NeoForge.EVENT_BUS.addListener(this::renderHud);
         NeoForge.EVENT_BUS.addListener(this::registerCommands);
-        NeoForge.EVENT_BUS.addListener(this::addSettingsButton);
         // NeoForge has no client-stopping event in 21.1. GPU and native resources are instead
         // released on level change and by the idle timers, which covers every case that matters
         // while the process is alive; the OS reclaims the rest at exit.
@@ -97,29 +92,6 @@ public final class TempestFxNeoForgeClient {
     private void renderHud(RenderGuiEvent.Post event) {
         client.renderHud(event.getGuiGraphics(), event.getPartialTick().getGameTimeDeltaPartialTick(false));
     }
-
-    /**
-     * A way into the settings from vanilla's own video settings.
-     *
-     * <p>NeoForge already offers the config button on the mod list, but that is not where a player
-     * looking for a visual mod's options looks first. Done through the screen event rather than a
-     * mixin, so a Minecraft update that moves the screen around costs a missing button rather than a
-     * crash.
-     */
-    private void addSettingsButton(ScreenEvent.Init.Post event) {
-        if (!(event.getScreen() instanceof VideoSettingsScreen screen)) return;
-        event.addListener(Button.builder(TempestOptionsScreen.buttonLabel(),
-                button -> Minecraft.getInstance().setScreen(client.settingsScreen(screen)))
-            .bounds(SETTINGS_BUTTON_MARGIN,
-                screen.height - SETTINGS_BUTTON_HEIGHT - SETTINGS_BUTTON_MARGIN,
-                SETTINGS_BUTTON_WIDTH, SETTINGS_BUTTON_HEIGHT)
-            .build());
-    }
-
-    /** Bottom-left, where vanilla puts nothing and mods conventionally do. */
-    private static final int SETTINGS_BUTTON_WIDTH = 110;
-    private static final int SETTINGS_BUTTON_HEIGHT = 20;
-    private static final int SETTINGS_BUTTON_MARGIN = 6;
 
     private void registerCommands(RegisterClientCommandsEvent event) {
         LiteralArgumentBuilder<CommandSourceStack> strike = Commands.literal("strike")
@@ -194,35 +166,6 @@ public final class TempestFxNeoForgeClient {
                         client.setShowcaseCameraSpeed(DoubleArgumentType.getDouble(context, "speed"));
                         return 1;
                     })));
-        // One ambient discharge of a named archetype, at cloud height in front of the player. The
-        // planner raises these on its own and rarely, so this is how they are actually inspected.
-        LiteralArgumentBuilder<CommandSourceStack> sky = Commands.literal("sky")
-            .executes(context -> { client.debugSkyDischarge("cloud_to_cloud", 160); return 1; });
-        for (String type : new String[] { "cloud_to_cloud", "intracloud", "megaflash",
-            "positive_cloud_to_ground", "negative_cloud_to_ground" }) {
-            sky = sky.then(Commands.literal(type)
-                .executes(context -> { client.debugSkyDischarge(type, 160); return 1; })
-                .then(Commands.argument("distance", DoubleArgumentType.doubleArg(16, 1024))
-                    .executes(context -> {
-                        client.debugSkyDischarge(type, DoubleArgumentType.getDouble(context, "distance"));
-                        return 1;
-                    })));
-        }
-
-        // The two events above the storm. Rare enough by design that a command is the only way to
-        // look at one on purpose.
-        LiteralArgumentBuilder<CommandSourceStack> aloft = Commands.literal("aloft")
-            .executes(context -> { client.debugLuminousEvent("red_sprite", 220); return 1; });
-        for (String type : new String[] { "red_sprite", "blue_jet" }) {
-            aloft = aloft.then(Commands.literal(type)
-                .executes(context -> { client.debugLuminousEvent(type, 220); return 1; })
-                .then(Commands.argument("distance", DoubleArgumentType.doubleArg(32, 1024))
-                    .executes(context -> {
-                        client.debugLuminousEvent(type, DoubleArgumentType.getDouble(context, "distance"));
-                        return 1;
-                    })));
-        }
-
         var settings = Commands.literal("settings")
             .executes(context -> {
                 // Deferred: the command runs while the chat screen is still up, and setScreen from
@@ -244,8 +187,6 @@ public final class TempestFxNeoForgeClient {
             .then(reload)
             .then(strike)
             .then(strikeCamera)
-            .then(sky)
-            .then(aloft)
             .then(camera)
             .then(Commands.literal("directhit").executes(context -> { client.debugDirectHit(); return 1; }))
             .then(Commands.literal("summon").executes(context -> { client.summonRealBolt(); return 1; }))

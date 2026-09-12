@@ -50,7 +50,6 @@ public final class DistantBoltSystem {
             0.4,
             0,
             0,
-            base.forkBiasY(),
             SEGMENT_BUDGET);
 
         LightningBolt bolt = LightningBolt.builder()

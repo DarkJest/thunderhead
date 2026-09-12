@@ -51,25 +51,8 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
             percent("cold_tint", 0, 200, config.lightning.coldTint, value -> config.lightning.coldTint = value),
             count("return_strokes", 0, 6, config.lightning.returnStrokes,
                 value -> config.lightning.returnStrokes = value),
-            toggle("stepped_leader", config.lightning.steppedLeader,
-                value -> config.lightning.steppedLeader = value),
             toggle("flicker", config.lightning.flicker, value -> config.lightning.flicker = value),
             toggle("distant_bolts", config.lighting.distantBolts, value -> config.lighting.distantBolts = value));
-
-        // The storm itself, rather than any one bolt.
-        list.addSmall(
-            toggle("sky_activity", config.sky.skyActivity, value -> config.sky.skyActivity = value),
-            percent("activity_rate", 0, 300, config.sky.activityRate, value -> config.sky.activityRate = value),
-            toggle("cloud_to_cloud", config.sky.cloudToCloud, value -> config.sky.cloudToCloud = value),
-            toggle("intracloud", config.sky.intracloud, value -> config.sky.intracloud = value),
-            toggle("cloud_illumination", config.sky.cloudIllumination,
-                value -> config.sky.cloudIllumination = value),
-            percent("cloud_illumination_strength", 0, 300, config.sky.cloudIlluminationStrength,
-                value -> config.sky.cloudIlluminationStrength = value),
-            percent("superbolts", 0, 25, config.lightning.superboltChance,
-                value -> config.lightning.superboltChance = value),
-            toggle("red_sprites", config.sky.redSprites, value -> config.sky.redSprites = value),
-            toggle("blue_jets", config.sky.blueJets, value -> config.sky.blueJets = value));
 
         list.addSmall(
             toggle("shockwave", config.impact.shockwave, value -> config.impact.shockwave = value),
@@ -78,8 +61,6 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
             toggle("debris", config.impact.debris, value -> config.impact.debris = value),
             toggle("ash", config.impact.ash, value -> config.impact.ash = value),
             toggle("air_distortion", config.impact.airDistortion, value -> config.impact.airDistortion = value),
-            toggle("streamers", config.impact.streamers, value -> config.impact.streamers = value),
-            toggle("rod_corona", config.impact.rodCorona, value -> config.impact.rodCorona = value),
             toggle("entity_discharge", config.impact.entityDischarge,
                 value -> config.impact.entityDischarge = value),
             toggle("ash_imprint", config.impact.ashImprint, value -> config.impact.ashImprint = value));
@@ -93,11 +74,7 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
                 value -> config.camera.impulseStrength = value),
             toggle("dynamic_lighting", config.lighting.dynamicLighting,
                 value -> config.lighting.dynamicLighting = value),
-            toggle("world_flash", config.lighting.worldFlash, value -> config.lighting.worldFlash = value),
-            toggle("bloom", config.lighting.bloom, value -> config.lighting.bloom = value),
-            percent("bloom_strength", 0, 300, config.lighting.bloomStrength,
-                value -> config.lighting.bloomStrength = value),
-            toggle("light_shafts", config.lighting.lightShafts, value -> config.lighting.lightShafts = value));
+            toggle("world_flash", config.lighting.worldFlash, value -> config.lighting.worldFlash = value));
 
         list.addSmall(
             toggle("custom_thunder", config.audio.customThunder, value -> config.audio.customThunder = value),
@@ -175,8 +152,5 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
 
     /** Label for the button that opens this screen from elsewhere. */
     public static Component title() { return Component.translatable("screen.tempestfx.title"); }
-
-    /** Shorter label, for the button wedged into vanilla's own video settings. */
-    public static Component buttonLabel() { return Component.translatable("screen.tempestfx.button"); }
 
 }

@@ -9,7 +9,6 @@ import dev.tempestfx.TempestFx;
 import dev.tempestfx.audio.TempestSounds;
 import dev.tempestfx.audio.ThunderProfile;
 import dev.tempestfx.client.TempestFxClient;
-import dev.tempestfx.client.TempestOptionsScreen;
 import dev.tempestfx.entity.TempestEntities;
 import dev.tempestfx.math.Vec3d;
 import dev.tempestfx.platform.ClientPlatform;
@@ -27,12 +26,8 @@ import net.fabricmc.fabric.api.client.rendering.v1.CoreShaderRegistrationCallbac
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
-import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.options.VideoSettingsScreen;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.EntityType;
@@ -72,24 +67,7 @@ public final class TempestFxFabricClient implements ClientModInitializer {
         HudRenderCallback.EVENT.register((graphics, tickCounter) ->
             client.renderHud(graphics, tickCounter.getGameTimeDeltaPartialTick(false)));
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> registerCommands(dispatcher));
-        // A way into the settings that does not need ModMenu installed. Vanilla's video settings is
-        // where a player looking for a visual mod's options would look first, and the screen API can
-        // add a widget there without a mixin - so a Minecraft update that moves the screen around
-        // costs a missing button rather than a crash.
-        ScreenEvents.AFTER_INIT.register((minecraft, screen, width, height) -> {
-            if (!(screen instanceof VideoSettingsScreen)) return;
-            Screens.getButtons(screen).add(Button.builder(TempestOptionsScreen.buttonLabel(),
-                    button -> minecraft.setScreen(client.settingsScreen(screen)))
-                .bounds(SETTINGS_BUTTON_MARGIN, height - SETTINGS_BUTTON_HEIGHT - SETTINGS_BUTTON_MARGIN,
-                    SETTINGS_BUTTON_WIDTH, SETTINGS_BUTTON_HEIGHT)
-                .build());
-        });
     }
-
-    /** Bottom-left, where vanilla puts nothing and mods conventionally do. */
-    private static final int SETTINGS_BUTTON_WIDTH = 110;
-    private static final int SETTINGS_BUTTON_HEIGHT = 20;
-    private static final int SETTINGS_BUTTON_MARGIN = 6;
 
     /** The live client, for the optional ModMenu entrypoint. */
     static TempestFxClient client() { return client; }
@@ -167,35 +145,6 @@ public final class TempestFxFabricClient implements ClientModInitializer {
                         client.setShowcaseCameraSpeed(DoubleArgumentType.getDouble(context, "speed"));
                         return 1;
                     })));
-        // One ambient discharge of a named archetype, at cloud height in front of the player. The
-        // planner raises these on its own and rarely, so this is how they are actually inspected.
-        var sky = ClientCommandManager.literal("sky")
-            .executes(context -> { client.debugSkyDischarge("cloud_to_cloud", 160); return 1; });
-        for (String type : new String[] { "cloud_to_cloud", "intracloud", "megaflash",
-            "positive_cloud_to_ground", "negative_cloud_to_ground" }) {
-            sky = sky.then(ClientCommandManager.literal(type)
-                .executes(context -> { client.debugSkyDischarge(type, 160); return 1; })
-                .then(ClientCommandManager.argument("distance", DoubleArgumentType.doubleArg(16, 1024))
-                    .executes(context -> {
-                        client.debugSkyDischarge(type, DoubleArgumentType.getDouble(context, "distance"));
-                        return 1;
-                    })));
-        }
-
-        // The two events above the storm. Rare enough by design that a command is the only way to
-        // look at one on purpose.
-        var aloft = ClientCommandManager.literal("aloft")
-            .executes(context -> { client.debugLuminousEvent("red_sprite", 220); return 1; });
-        for (String type : new String[] { "red_sprite", "blue_jet" }) {
-            aloft = aloft.then(ClientCommandManager.literal(type)
-                .executes(context -> { client.debugLuminousEvent(type, 220); return 1; })
-                .then(ClientCommandManager.argument("distance", DoubleArgumentType.doubleArg(32, 1024))
-                    .executes(context -> {
-                        client.debugLuminousEvent(type, DoubleArgumentType.getDouble(context, "distance"));
-                        return 1;
-                    })));
-        }
-
         var settings = ClientCommandManager.literal("settings")
             .executes(context -> {
                 // Deferred: the command runs while the chat screen is still up, and setScreen from
@@ -216,8 +165,6 @@ public final class TempestFxFabricClient implements ClientModInitializer {
             .then(reload)
             .then(strike)
             .then(strikeCamera)
-            .then(sky)
-            .then(aloft)
             .then(camera)
             .then(ClientCommandManager.literal("directhit")
                 .executes(context -> { client.debugDirectHit(); return 1; }))

@@ -52,7 +52,7 @@ today. It will work unchanged once it is published there:
 
 ```gradle
 repositories { maven { url = "https://api.modrinth.com/maven" } }
-dependencies { compileOnly "maven.modrinth:thunderhead:1.3.0" }
+dependencies { compileOnly "maven.modrinth:thunderhead:1.1.0" }
 ```
 
 `compileOnly`, deliberately. Your mod compiles against Thunderhead and runs with or without it. Then
@@ -68,7 +68,7 @@ declare it as an *optional* dependency so the loader does not demand it:
 [[dependencies.yourmod]]
 modId = "tempestfx"
 type = "optional"
-versionRange = "[1.3.0,)"
+versionRange = "[1.1.0,)"
 ordering = "AFTER"
 side = "CLIENT"
 ```
@@ -139,45 +139,11 @@ bolt does not wander like a tall one.
 
 Leave `origin` out for a normal cloud-to-ground strike.
 
-### Discharge type
-
-A flash is one of five things, and which one decides its geometry, its timeline, its colour, how far
-it lights the cloud around it and how hard it thunders:
-
-```java
-import dev.tempestfx.api.DischargeType;
-
-TempestFxApi.triggerLightning(LightningEffect.builder()
-    .position(groundPoint)
-    .type(DischargeType.POSITIVE_CLOUD_TO_GROUND)   // the rare superbolt
-    .seed(seed)
-    .build());
-```
-
-| Type | What you get |
-| --- | --- |
-| `NEGATIVE_CLOUD_TO_GROUND` | the ordinary strike: heavy branching, several return strokes |
-| `POSITIVE_CLOUD_TO_GROUND` | a superbolt: wide, violet, barely branched, one dominant stroke that holds |
-| `CLOUD_TO_CLOUD` | a horizontal channel through the storm; never reaches the ground |
-| `INTRACLOUD` | buried in cloud: almost no exposed channel, the cloud pulses instead |
-| `MEGAFLASH` | kilometre-scale, propagating for over a second |
-
-The aerial types expect an `origin` and a `position` that are both up at cloud height; give one a
-ground `position` and you get a very strange bolt, which is on you.
-
-Leave `type` unset and Thunderhead chooses from the seed, the way it does for a vanilla bolt. That
-is what an integration wanting "a lightning bolt" should do — the player's superbolt rate then
-applies as they configured it.
-
-`LightningStrikeFxEvent.dischargeType()` reports what a strike turned out to be, and never returns
-`null`.
-
 ### Optional extras
 
 | Builder method | What it does |
 | --- | --- |
 | `.origin(Vec3d)` | where the channel starts — fixes its angle and length |
-| `.type(DischargeType)` | which archetype to draw — see above |
 | `.environment(LightningEnvironment)` | ground colour, wetness, water, foliage — drives which particles are emitted |
 | `.target(StrikeTarget)` | mark the strike as landing on an entity; a player target leaves the ash scar |
 | `.style(LightningStyle)` | see below |
@@ -364,7 +330,7 @@ Everything in `dev.tempestfx.api` keeps its shape within a major version:
 - `TempestFxServerApi` — `spawnBallLightning`
 - `LightningEffect`, `LightningStyle`, `StrikeOptions`, `LightningStrikeFxEvent`,
   `LightningEnvironment`, `StrikeTarget`, `ThunderOptions`, `ThunderVoice`, `ThunderRoll`,
-  `ParticleFamily`, `DischargeType`
+  `ParticleFamily`
 - `dev.tempestfx.math.Vec3d` and `StrikeSeed`, because the API takes and returns them
 
 Everything else is implementation detail and may change in any release. That explicitly includes

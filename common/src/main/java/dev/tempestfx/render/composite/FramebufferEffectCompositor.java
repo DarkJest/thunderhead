@@ -3,6 +3,12 @@ package dev.tempestfx.render.composite;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.MeshData;
+import com.mojang.blaze3d.vertex.VertexBuffer;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.tempestfx.TempestFx;
 import dev.tempestfx.render.gl.FxProgram;
 import dev.tempestfx.render.gl.FxPrograms;
@@ -50,8 +56,9 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
     private final EffectRenderTarget target = new EffectRenderTarget();
     private final SceneColorCopy sceneCopy = new SceneColorCopy();
     private final FxStateGuard guard = new FxStateGuard();
-    private final BloomChain bloom;
-    private final FullscreenQuad quad = new FullscreenQuad();
+
+    private ByteBufferBuilder quadBuffer;
+    private VertexBuffer quad;
 
     private boolean disabled;
     private boolean worldPassOpen;
@@ -59,31 +66,8 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
     private int missedComposites;
     private int idleTicks;
 
-    /**
-     * How much of a quarter-resolution blurred image one unit of user strength is worth.
-     *
-     * <p>A gaussian spreads the energy it is given, so the peak of the blurred bloom is a fraction of
-     * what went into it. Adding it back at face value is barely perceptible, which is precisely the
-     * report this constant exists to answer.
-     */
-    private static final float GLOW_GAIN = 2.2f;
-
-    /** Strength the glow is added at; 0 skips the chain outright. */
-    private float glowStrength = 1f;
-
     public FramebufferEffectCompositor(FxPrograms programs) {
         this.programs = programs;
-        this.bloom = new BloomChain(programs);
-    }
-
-    /**
-     * Sets how hard the glow is applied.
-     *
-     * <p>Pushed in rather than read from the config here, because this class owns GPU resources and
-     * nothing else, and a compositor that reads user settings would be two things.
-     */
-    public void setGlowStrength(float value) {
-        glowStrength = Math.max(0, value);
     }
 
     @Override
@@ -138,7 +122,7 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
     }
 
     @Override
-    public void composite(DistortionField distortion, LightShaftField shafts) {
+    public void composite(DistortionField distortion) {
         if (!pendingComposite) return;
         pendingComposite = false;
         missedComposites = 0;
@@ -152,14 +136,9 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
             DistortionField field = distortion == null ? DistortionField.NONE : distortion;
             boolean refract = field.active()
                 && sceneCopy.capture(main.frameBufferId, main.width, main.height);
-            // The glow is produced first, from the mod's own attachment and nothing else, while the
-            // scene image is still untouched.
-            int glow = bloom.run(target.colorTextureId(), main.width, main.height, glowStrength,
-                shafts == null ? LightShaftField.NONE : shafts);
             GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, main.frameBufferId);
             GL11.glViewport(0, 0, main.viewWidth, main.viewHeight);
-            drawFullscreen(program, refract ? sceneCopy.textureId() : target.colorTextureId(), refract,
-                field, glow);
+            drawFullscreen(program, refract ? sceneCopy.textureId() : target.colorTextureId(), refract, field);
         } catch (Throwable failure) {
             degrade("the composite pass failed", failure);
         } finally {
@@ -182,8 +161,10 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
     }
 
     /** One quad, one program, one blend mode; the only pass that ever touches the scene image. */
-    private void drawFullscreen(FxProgram program, int sceneTexture, boolean refract, DistortionField field,
-                                int glowTexture) {
+    private void drawFullscreen(FxProgram program, int sceneTexture, boolean refract, DistortionField field) {
+        if (quadBuffer == null) quadBuffer = new ByteBufferBuilder(4 * DefaultVertexFormat.POSITION_TEX_COLOR.getVertexSize());
+        if (quad == null) quad = new VertexBuffer(VertexBuffer.Usage.DYNAMIC);
+
         GL11.glDisable(GL11.GL_DEPTH_TEST);
         GL11.glDepthMask(false);
         GL11.glDisable(GL11.GL_CULL_FACE);
@@ -205,16 +186,21 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
         GL13.glActiveTexture(GL13.GL_TEXTURE1);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, target.colorTextureId());
         program.setSampler("Sampler1", 1);
-        // A glow the chain could not produce is simply absent: the shader is told zero strength and
-        // never reads the sampler, so there is nothing to bind and nothing to go wrong.
-        program.setVector4("TempestGlow", glowTexture >= 0 ? glowStrength * GLOW_GAIN : 0f, 0f, 0f, 0f);
-        if (glowTexture >= 0) {
-            GL13.glActiveTexture(GL13.GL_TEXTURE2);
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, glowTexture);
-            program.setSampler("Sampler2", 2);
-        }
 
+        // Clip space directly: the program declares no matrices, so nothing has to be pushed, saved
+        // or restored to draw it.
+        BufferBuilder builder = new BufferBuilder(quadBuffer, VertexFormat.Mode.QUADS,
+            DefaultVertexFormat.POSITION_TEX_COLOR);
+        builder.addVertex(-1f, -1f, 0f).setUv(0f, 0f).setColor(255, 255, 255, 255);
+        builder.addVertex(1f, -1f, 0f).setUv(1f, 0f).setColor(255, 255, 255, 255);
+        builder.addVertex(1f, 1f, 0f).setUv(1f, 1f).setColor(255, 255, 255, 255);
+        builder.addVertex(-1f, 1f, 0f).setUv(0f, 1f).setColor(255, 255, 255, 255);
+        MeshData mesh = builder.build();
+        if (mesh == null) return;
+        quad.bind();
+        quad.upload(mesh);
         quad.draw();
+        VertexBuffer.unbind();
         FxProgram.unbind();
     }
 
@@ -247,7 +233,13 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
         idleTicks = 0;
         target.close();
         sceneCopy.close();
-        bloom.close();
-        quad.close();
+        if (quad != null) {
+            quad.close();
+            quad = null;
+        }
+        if (quadBuffer != null) {
+            quadBuffer.close();
+            quadBuffer = null;
+        }
     }
 }
