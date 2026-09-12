@@ -6,6 +6,7 @@ import dev.tempestfx.lightning.LightningBolt;
 import dev.tempestfx.lightning.LightningGenerationConfig;
 import dev.tempestfx.lightning.LightningGeometryStrategy;
 import dev.tempestfx.lightning.LightningLod;
+import dev.tempestfx.lightning.FlashTimeline;
 import dev.tempestfx.math.StrikeSeed;
 import dev.tempestfx.math.Vec3d;
 
@@ -25,6 +26,10 @@ public final class LightningEffectFactory {
     }
 
     public ActiveLightningEffect create(LightningStrikeFxEvent event, LightningLod lod, TempestConfig config) {
+        return create(event, lod, config, FlashTimeline.plan(event.seed(), config.effectiveReturnStrokes(), config.realistic()));
+    }
+
+    public ActiveLightningEffect create(LightningStrikeFxEvent event, LightningLod lod, TempestConfig config, FlashTimeline timeline) {
         long seed = event.seed();
         LightningLook look = LightningLook.resolve(config, event.style());
         float scale = look.scale();
@@ -53,7 +58,7 @@ public final class LightningEffectFactory {
             .intensity(event.intensity())
             .config(selected)
             .build();
-        return new ActiveLightningEffect(event, geometryStrategy.generate(bolt), lod);
+        return new ActiveLightningEffect(event, geometryStrategy.generate(bolt), lod, timeline);
     }
 
     /** Where a bolt leaves the cloud when the caller did not say: up, and leaning by its seed. */

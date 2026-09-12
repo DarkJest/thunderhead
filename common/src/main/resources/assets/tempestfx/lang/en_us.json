@@ -1,4 +1,8 @@
 {
+  "option.tempestfx.realism": "Presentation",
+  "option.tempestfx.realism.realistic": "Realistic",
+  "option.tempestfx.realism.cinematic": "Cinematic",
+  "option.tempestfx.realism.tooltip": "Realistic uses one channel per flash and restrained impacts. Cinematic retains enhanced impact rings and distant storm walls. Independent of quality.",
   "text.tempestfx.debug": "Thunderhead diagnostics",
   "category.tempestfx": "Thunderhead",
   "subtitles.tempestfx.thunder": "Thunder cracks",

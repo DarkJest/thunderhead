@@ -26,7 +26,8 @@ public final class ScreenFlashSystem {
         if (target <= primary) return;
         primary = target;
         previousPrimary = Math.max(previousPrimary, target);
-        secondary = config.general.reducedFlashing ? 0 : Math.max(secondary, target * 0.24f);
+        // All repeats belong to FlashTimeline; the screen must not invent extra discharges.
+        secondary = 0;
     }
 
     public void tick() {

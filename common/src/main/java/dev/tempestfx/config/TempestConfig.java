@@ -21,6 +21,8 @@ public final class TempestConfig {
     public Compatibility compatibility = new Compatibility();
 
     public static final class General {
+        /** Existing configurations keep their old look; ConfigManager selects Realistic for new installs. */
+        public RealismProfile profile = RealismProfile.CINEMATIC;
         public boolean enabled = true;
         public boolean debug = false;
         /** Accessibility switch: removes rapid brightness changes while keeping the bolt readable. */
@@ -32,6 +34,7 @@ public final class TempestConfig {
         public int branchCount = 18;
         public float thickness = 1f;
         public float glowStrength = 1f;
+        /** Legacy preference retained for migration; pulse timing now comes exclusively from FlashTimeline. */
         public boolean flicker = true;
         /** Strength of the cold blue-violet tint in the glow layers; the core stays near-white. */
         public float coldTint = 1f;
@@ -124,6 +127,7 @@ public final class TempestConfig {
 
     public TempestConfig validate() {
         if (general == null) general = new General();
+        if (general.profile == null) general.profile = RealismProfile.CINEMATIC;
         if (lightning == null) lightning = new Lightning();
         if (impact == null) impact = new Impact();
         if (lighting == null) lighting = new Lighting();
@@ -171,6 +175,7 @@ public final class TempestConfig {
 
     // Accessibility is an effective override, never a destructive edit of saved preferences.
     public int effectiveReturnStrokes() { return general.reducedFlashing ? 0 : lightning.returnStrokes; }
+    public boolean realistic() { return general.profile == RealismProfile.REALISTIC; }
     public boolean effectiveFlicker() { return !general.reducedFlashing && lightning.flicker; }
     public int effectiveWorldFlashTicks() { return general.reducedFlashing ? 0 : lighting.worldFlashTicks; }
     public boolean effectiveDistantBolts() { return !general.reducedFlashing && lighting.distantBolts; }

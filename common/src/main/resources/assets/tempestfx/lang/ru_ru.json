@@ -1,4 +1,8 @@
 {
+  "option.tempestfx.realism": "Представление молнии",
+  "option.tempestfx.realism.realistic": "Реалистичное",
+  "option.tempestfx.realism.cinematic": "Кинематографичное",
+  "option.tempestfx.realism.tooltip": "Реалистичный режим использует общий канал разряда и сдержанные последствия. Кинематографичный сохраняет усиленные кольца и стены молний. Не зависит от качества.",
   "text.tempestfx.debug": "Диагностика Thunderhead",
   "category.tempestfx": "Thunderhead",
   "subtitles.tempestfx.thunder": "Раскат грома",

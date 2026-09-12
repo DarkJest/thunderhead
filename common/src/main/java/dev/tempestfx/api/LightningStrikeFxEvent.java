@@ -59,6 +59,6 @@ public record LightningStrikeFxEvent(Vec3d position, long seed, float intensity,
     public LightningStrikeFxEvent asStroke(Vec3d newPosition, long newSeed, float newIntensity,
                                            LightningEnvironment newEnvironment, int strokeIndex) {
         return new LightningStrikeFxEvent(newPosition, newSeed, newIntensity, newEnvironment,
-            StrikeTarget.none(), strokeIndex);
+            StrikeTarget.none(), strokeIndex, options);
     }
 }

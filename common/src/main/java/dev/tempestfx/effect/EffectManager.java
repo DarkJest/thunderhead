@@ -3,6 +3,7 @@ package dev.tempestfx.effect;
 import dev.tempestfx.api.LightningStrikeFxEvent;
 import dev.tempestfx.config.TempestConfig;
 import dev.tempestfx.lightning.LightningLod;
+import dev.tempestfx.lightning.FlashTimeline;
 import dev.tempestfx.math.Vec3d;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,15 +26,22 @@ public final class EffectManager {
     public EffectManager(LightningEffectFactory factory) { this.factory = factory; }
 
     public void onStrike(LightningStrikeFxEvent event, Vec3d camera, TempestConfig config) {
+        onFlash(event, camera, config, FlashTimeline.plan(event.seed(), config.effectiveReturnStrokes(), config.realistic()));
+    }
+
+    public void onFlash(LightningStrikeFxEvent event, Vec3d camera, TempestConfig config, FlashTimeline timeline) {
         double distance = camera.distanceTo(event.position());
         if (distance > config.performance.renderDistance) return;
 
         LightningLod lod = config.performance.lod ? LightningLod.forDistance(distance) : LightningLod.FULL;
         int limit = config.performance.maxConcurrentEffects;
         while (lightning.size() >= limit) lightning.removeFirst();
-        lightning.add(factory.create(event, lod, config));
+        lightning.add(factory.create(event, lod, config, timeline));
+    }
 
-        if (config.impact.shockwave && lod != LightningLod.ATMOSPHERIC) {
+    public void onContact(LightningStrikeFxEvent event, Vec3d camera, TempestConfig config) {
+        if (config.impact.shockwave && !config.realistic() && camera.distanceTo(event.position()) < 256) {
+            int limit = config.performance.maxConcurrentEffects;
             while (shockwaves.size() >= limit) shockwaves.removeFirst();
             shockwaves.add(new ShockwaveEffect(event));
         }

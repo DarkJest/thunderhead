@@ -22,6 +22,7 @@ dependencies {
     // that path need the interface on the classpath; the no-op binding keeps the output clean.
     testRuntimeOnly 'org.slf4j:slf4j-nop:2.0.9'
     testImplementation 'org.slf4j:slf4j-api:2.0.9'
+    testImplementation 'com.google.code.gson:gson:2.10.1'
     // Screen-space projection is pure matrix arithmetic, so it is unit-testable - but only with the
     // same maths library the game uses. This is the version 1.21.1 ships.
     testImplementation 'org.joml:joml:1.10.5'

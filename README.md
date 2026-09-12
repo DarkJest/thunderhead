@@ -1,5 +1,11 @@
 # Thunderhead — Lightning & Thunder Overhaul
 
+> Development status: 1.3.0 is implementing the [realism roadmap](docs/ROADMAP_RU.md).
+> The feature descriptions below document the original cinematic presentation. New configurations
+> select Realistic; existing configurations retain Cinematic. Both now use a shared channel and pulse
+> timeline. Shader compatibility means tested combinations, not guaranteed integration with every pack's
+> cloud lighting, exposure or reflections. See [implementation evidence](docs/IMPLEMENTATION_STATUS.md).
+
 > Minecraft 1.21.1 · Fabric & NeoForge · cinematic lightning, storm fronts and rolling thunder
 
 **Thunderhead** is a visual, audio and gameplay overhaul of lightning for Minecraft 1.21.1. A strike

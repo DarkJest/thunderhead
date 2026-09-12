@@ -24,6 +24,8 @@ import dev.tempestfx.config.ConfigManager;
 import dev.tempestfx.config.QualityPreset;
 import dev.tempestfx.config.TempestConfig;
 import dev.tempestfx.effect.AshImprint;
+import dev.tempestfx.effect.ActiveLightningEffect;
+import dev.tempestfx.effect.FlashSimulation;
 import dev.tempestfx.effect.AshImprintSystem;
 import dev.tempestfx.effect.CameraImpulseSystem;
 import dev.tempestfx.effect.DischargeTarget;
@@ -32,7 +34,6 @@ import dev.tempestfx.effect.EntityDischargeSystem;
 import dev.tempestfx.effect.LightningEffectFactory;
 import dev.tempestfx.effect.ScreenFlashSystem;
 import dev.tempestfx.effect.DistantBoltSystem;
-import dev.tempestfx.effect.StrikeSequenceSystem;
 import dev.tempestfx.effect.ThunderRumbleCameraEffect;
 import dev.tempestfx.effect.TransientLightSystem;
 import dev.tempestfx.effect.WorldFlashSystem;
@@ -103,7 +104,7 @@ public final class TempestFxClient {
     private final WorldFlashSystem worldFlash = new WorldFlashSystem();
     private final EntityDischargeSystem discharges = new EntityDischargeSystem();
     private final AshImprintSystem imprints = new AshImprintSystem();
-    private final StrikeSequenceSystem sequences = new StrikeSequenceSystem();
+    private final FlashSimulation flashes = new FlashSimulation(effects);
     private final List<BallLightning> ballLightning = new ArrayList<>();
     private final ThunderSystem thunder;
     private final ThunderRollSystem thunderRolls;
@@ -137,6 +138,7 @@ public final class TempestFxClient {
     private boolean automatedSmokeStrikeTriggered;
     private int smokeStrikeCountdown;
     private final DevelopmentCapture developmentCapture = new DevelopmentCapture();
+    private long lastWorldFrameNanos;
 
     public TempestFxClient(ClientPlatform platform) {
         this.platform = platform;
@@ -170,19 +172,29 @@ public final class TempestFxClient {
      * feature can be disabled or replaced without touching the rest of the storm.
      */
     private void registerSubsystems() {
-        events.subscribeStrike(event -> effects.onStrike(event, platform.cameraPosition(), config));
-        events.subscribeStrike(this::emitImpactParticles);
-        events.subscribeStrike(event -> screenFlash.onStrike(event, platform.cameraPosition(), config));
-        events.subscribeStrike(event -> cameraImpulse.onStrike(event, platform.cameraPosition(), config));
-        events.subscribeStrike(event -> lights.onStrike(event, config));
-        events.subscribeStrike(event -> worldFlash.onStrike(event, platform.cameraPosition(), config));
-        events.subscribeStrike(this::startEntityDischarges);
-        events.subscribeStrike(this::leaveAshImprint);
-        events.subscribeStrike(event -> sequences.onStrike(event, config));
-        events.subscribeStrike(this::playStrikeAudio);
+        events.subscribeStrike(event -> {
+            if (!config.general.enabled || currentLevel == null) return;
+            flashes.enqueue(event);
+        });
         // Last, so an integration sees the strike only once the mod's own subsystems have accepted
         // it, and so a slow listener delays nothing that is already on screen.
-        events.subscribeStrike(TempestFxApi.Internal::fireStrike);
+    }
+
+    /** Contact effects never publish another geometry event or start another flash. */
+    private void onFlashContact(LightningStrikeFxEvent event) {
+        if (!config.general.enabled || currentLevel == null) return;
+        if (config.general.reducedFlashing && !event.primary()) return;
+        effects.onContact(event, platform.cameraPosition(), config);
+        emitImpactParticles(event);
+        screenFlash.onStrike(event, platform.cameraPosition(), config);
+        lights.onStrike(event, config);
+        worldFlash.onStrike(event, platform.cameraPosition(), config);
+        if (!config.realistic()) {
+            cameraImpulse.onStrike(event, platform.cameraPosition(), config);
+            if (event.primary()) { startEntityDischarges(event); leaveAshImprint(event); }
+        }
+        playStrikeAudio(event);
+        if (!event.primary()) TempestFxApi.Internal.fireStrike(event);
     }
 
     // ------------------------------------------------------------------ lifecycle
@@ -200,7 +212,6 @@ public final class TempestFxClient {
         events.drain();
 
         ingest.tick();
-        effects.tick();
         particles.tick();
         screenFlash.tick();
         cameraImpulse.tick();
@@ -212,7 +223,7 @@ public final class TempestFxClient {
         rumble.tick();
         distantBolts.tick();
         showcaseCamera.tick(minecraft);
-        sequences.tick(this::releaseReturnStroke);
+        flashes.tick(platform.cameraPosition(), config, this::onFlashContact, TempestFxApi.Internal::fireStrike);
         tickBallLightning();
         if (currentLevel != null) {
             ClientLevel level = currentLevel;
@@ -238,7 +249,7 @@ public final class TempestFxClient {
         worldFlash.clear();
         discharges.clear();
         imprints.clear();
-        sequences.clear();
+        flashes.clear();
         ballLightning.clear();
         thunder.clear();
         thunderRolls.clear();
@@ -294,7 +305,7 @@ public final class TempestFxClient {
         programs.reload();
         bloomBackend = BloomBackendFactory.create(config.compatibility.bloomMode, compatibilityMode());
         // Drop pending flashes on accessibility changes; they may have been scheduled under the old mode.
-        sequences.clear();
+        flashes.clear();
         screenFlash.clear();
         worldFlash.clear();
         cameraImpulse.clear();
@@ -342,17 +353,6 @@ public final class TempestFxClient {
         return true;
     }
 
-    /**
-     * Releases one return stroke of a flash.
-     */
-    private void releaseReturnStroke(Vec3d position, long seed, float intensity, int stroke) {
-        if (currentLevel == null) return;
-        Vec3d grounded = snapToSurface(currentLevel, position);
-        LightningEnvironment environment = environmentAt(currentLevel, grounded);
-        events.publish(new LightningStrikeFxEvent(grounded, seed, intensity, environment,
-            StrikeTarget.none(), stroke));
-    }
-
     /** Sheds sparks and crackle from every tracked sphere, and drops the ones that are gone. */
     private void tickBallLightning() {
         for (int index = ballLightning.size() - 1; index >= 0; index--) {
@@ -381,6 +381,7 @@ public final class TempestFxClient {
     private void emitImpactParticles(LightningStrikeFxEvent event) {
         double distance = platform.cameraPosition().distanceTo(event.position());
         int budget = config.particleBudget(distance);
+        if (config.realistic()) budget /= 10;
         if (budget <= 0) return;
         particles.emit(event, budget, material -> allowedByStrike(event, material) && switch (material) {
             case SPARK, MICRO_ARC -> config.impact.sparks;
@@ -430,7 +431,7 @@ public final class TempestFxClient {
      * Audio for a strike: either a rolling thunder event, or the ordinary cue, never both in full.
      */
     private void playStrikeAudio(LightningStrikeFxEvent event) {
-        boolean roll = thunderRolls.onStrike(platform.cameraPosition(), event.position(),
+        boolean roll = !config.realistic() && event.primary() && thunderRolls.onStrike(platform.cameraPosition(), event.position(),
             event.seed(), event.intensity(), config, viewDistance());
         thunder.onStrike(event, platform.cameraPosition(), config, roll);
     }
@@ -439,6 +440,7 @@ public final class TempestFxClient {
      * A distant channel scheduled by the roll.
      */
     private void onRollBolt(DistantBoltCue cue) {
+        if (config.realistic()) return;
         if (distantBolts.onCue(cue, config) != null && cue.intensity() > 0.8f) {
             worldFlash.pulse(1, config);
         }
@@ -481,6 +483,11 @@ public final class TempestFxClient {
     public void renderWorld(PoseStack stack, float partialTick) {
         if (!config.general.enabled || currentLevel == null) return;
         WorldFxRenderer.Scene scene = scene();
+        long now = System.nanoTime();
+        float frameTicks = lastWorldFrameNanos == 0 ? 1f / 3f : (now - lastWorldFrameNanos) / 50_000_000f;
+        lastWorldFrameNanos = now;
+        for (ActiveLightningEffect effect : scene.lightning()) effect.prepareFrame(partialTick, frameTicks);
+        for (ActiveLightningEffect effect : scene.distantBolts()) effect.prepareFrame(partialTick, frameTicks);
         if (scene.isEmpty()) return;
 
         Vec3d camera = platform.cameraPosition();

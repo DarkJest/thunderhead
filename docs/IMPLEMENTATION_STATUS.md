@@ -19,3 +19,18 @@
   Examined before/strike frames 119/122 from run 1789238547404: channels visible, scene flash present;
   sampled log reports isolated compositor. This does not certify transparent-water occlusion or reflections.
 - Next: shader capture, then 1.3.0. No later milestone is complete yet.
+
+## 1.3.0 — review and integration
+
+- Shared immutable pulse timeline and fixed geometry, two presentation profiles, preserved configuration/API options.
+- Reviewer review_1_3_0 identified first-frame aging, omitted repeat callbacks and premature removal during
+  accessibility fade. All fixed; FlashSimulation now owns birth ordering and frame sampling retains the first interval.
+- buildAll passed 166 tests after the fixes, including birth→tick→first-frame regression, geometry identity,
+  exposure energy at multiple frame rates, config migration and saved accessibility preferences.
+- Initial Realistic capture with Complementary completed (run 1789239034193); final corrected captures pending.
+- Final corrections rechecked by the same reviewer: no blocking defects in reviewed scope.
+- Corrected Realistic capture completed with Complementary at 60 FPS cap (1789239279005) and ARTShade
+  at 30 FPS cap (1789239346704). Examined captured channel frames, isolated compositor confirmed in logs;
+  both runs exited with worlds saved. Capture overhead means these are not performance benchmarks.
+- 1.3 implementation checkpoint complete; extended physical calibration, complete shader matrix and full
+  roadmap acceptance remain ongoing. Next is 1.4 channel geometry and distinct discharge kinds.

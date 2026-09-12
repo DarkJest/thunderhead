@@ -2,6 +2,7 @@ package dev.tempestfx.client;
 
 import com.mojang.serialization.Codec;
 import dev.tempestfx.config.QualityPreset;
+import dev.tempestfx.config.RealismProfile;
 import dev.tempestfx.config.TempestConfig;
 import java.util.Arrays;
 import java.util.List;
@@ -34,6 +35,8 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
 
     @Override
     protected void addOptions() {
+        list.addBig(cycle("realism", RealismProfile.class, config.general.profile,
+            value -> config.general.profile = value));
         list.addBig(cycle("preset", QualityPreset.class, config.performance.qualityPreset,
             value -> config.performance.qualityPreset = value));
 
@@ -51,7 +54,6 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
             percent("cold_tint", 0, 200, config.lightning.coldTint, value -> config.lightning.coldTint = value),
             count("return_strokes", 0, 4, config.lightning.returnStrokes,
                 value -> config.lightning.returnStrokes = value),
-            toggle("flicker", config.lightning.flicker, value -> config.lightning.flicker = value),
             toggle("distant_bolts", config.lighting.distantBolts, value -> config.lighting.distantBolts = value));
 
         list.addSmall(

@@ -22,9 +22,11 @@ public final class ConfigManager {
     public TempestConfig load() {
         TempestConfig loaded;
         try {
-            loaded = Files.exists(path)
+            boolean existing = Files.exists(path);
+            loaded = existing
                 ? GSON.fromJson(Files.readString(path, StandardCharsets.UTF_8), TempestConfig.class)
                 : new TempestConfig();
+            if (!existing) loaded.general.profile = RealismProfile.REALISTIC;
             if (loaded == null) loaded = new TempestConfig();
         } catch (RuntimeException | IOException failure) {
             loaded = new TempestConfig();

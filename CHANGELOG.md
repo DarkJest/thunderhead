@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.3.0 (development)
+
+- One immutable FlashTimeline drives channel brightness and contact impulses. Repeated strokes share
+  geometry, position, seed, surface and API overrides; they no longer generate displaced bolt trees.
+- Pulse times retain sub-tick precision; channel intensity uses analytic frame exposure. A weak leader
+  precedes the return front, evaluated from ground toward cloud at a documented approximate speed.
+- Add Realistic/Cinematic presentation independent of quality. New config files select Realistic;
+  existing files retain Cinematic and all requested appearance settings.
+- Realistic suppresses impact rings, movement-driven entity arcs, player-shaped imprints and sound-driven
+  distant walls; reduced-flashing limits override either profile without destroying preferences.
+- Screen flashes no longer invent a separate secondary pulse. Contact callbacks preserve per-strike options.
+
+These are game approximations, not a claim of a complete atmospheric simulation. Cloud integration,
+distributed thunder and server storm simulation remain subsequent roadmap milestones.
+
 ## 1.2.1 (development)
 
 - Restore the caller's framebuffer and GL state when isolated rendering cannot start.
