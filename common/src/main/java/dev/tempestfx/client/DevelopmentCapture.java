@@ -6,6 +6,8 @@ import net.minecraft.client.Screenshot;
 
 /** Opt-in, finite integration run. Use only with a disposable singleplayer QA save. */
 final class DevelopmentCapture {
+    private final MechanismAudit audit = new MechanismAudit();
+    void finalFrame(Minecraft minecraft, TempestFxClient client) { audit.frame(minecraft, client); }
     private final boolean enabled = Boolean.getBoolean("tempestfx.capture");
     private final boolean surfaces = "surface".equals(System.getProperty("tempestfx.captureScene"));
     private final boolean storm = "storm".equals(System.getProperty("tempestfx.captureScene"));
@@ -17,6 +19,7 @@ final class DevelopmentCapture {
     private final String run = Long.toString(System.currentTimeMillis());
 
     void tick(Minecraft minecraft, TempestFxClient client) {
+        if (audit.enabled()) { audit.tick(minecraft, client); return; }
         if (!enabled || minecraft.player == null || (!multiplayer && minecraft.getSingleplayerServer() == null)) return;
         ticks++;
         if (stress && ticks >= 120 && ticks < 2400 && ticks % 20 == 0) client.stress(20);
@@ -57,6 +60,7 @@ final class DevelopmentCapture {
     }
 
     void frame(Minecraft minecraft, String compositorStatus) {
+        if (audit.enabled()) return;
         if (!enabled || stress || ticks < 119 || ticks > 310) return;
         boolean burst = (ticks >= 120 && ticks <= 125) || (ticks >= 180 && ticks <= 185)
             || (ticks >= 240 && ticks <= 245) || (ticks >= 300 && ticks <= 305);

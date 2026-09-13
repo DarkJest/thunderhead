@@ -12,7 +12,10 @@ import net.minecraft.util.Mth;
  * through the shared entity buffer into a frame the mod does not own.
  */
 public record BallLightningDraw(double x, double y, double z, double surfaceBelow,
-                                float radius, float output, long seed, float age) {
+                                float radius, float output, long seed, float age, int entityId) {
+    public BallLightningDraw(double x, double y, double z, double surfaceBelow, float radius, float output, long seed, float age) {
+        this(x,y,z,surfaceBelow,radius,output,seed,age,Integer.MIN_VALUE);
+    }
     public static BallLightningDraw of(BallLightning entity, float partialTick) {
         return new BallLightningDraw(
             Mth.lerp(partialTick, entity.xOld, entity.getX()),
@@ -22,6 +25,6 @@ public record BallLightningDraw(double x, double y, double z, double surfaceBelo
             entity.renderRadius(partialTick),
             entity.output(partialTick),
             entity.visualSeed(),
-            entity.tickCount + partialTick);
+            entity.tickCount + partialTick, entity.getId());
     }
 }

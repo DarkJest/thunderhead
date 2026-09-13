@@ -151,6 +151,33 @@ public final class TempestFxClient {
     private long lastWorldFrameNanos;
     private boolean lastIsolationFailed;
     private String lastWorldPath = "not yet drawn";
+    private long simulationTicks;
+    long auditSimulationTicks() { return simulationTicks; }
+    private boolean lastDistortionActive;
+    private int lastSphereDrawCount;
+    void resetAuditState() { onLevelChanged(currentLevel); applyRenderConfig(); lastDistortionActive = false; lastSphereDrawCount = 0; }
+    java.util.Map<String, Double> mechanismCounters() {
+        var result = new java.util.LinkedHashMap<String, Double>();
+        result.put("bolts", (double) effects.activeLightningCount());
+        result.put("sky", (double) distantBolts.activeCount());
+        result.put("shockwaves", (double) effects.shockwaves().size());
+        result.put("imprints", (double) imprints.activeCount());
+        result.put("discharges", (double) discharges.activeCount());
+        result.put("sphereDraws", (double) lastSphereDrawCount);
+        result.put("voices", (double) thunder.voicesInWindow());
+        result.put("screen", (double) screenFlash.intensity(1));
+        result.put("camera", cameraImpulse.active() || rumble.active() ? 1.0 : 0.0);
+        result.put("distortion", lastDistortionActive ? 1.0 : 0.0);
+        result.put("surfaceLight", compositor.surfaceLightingActive() ? 1.0 : 0.0);
+        for (var material : dev.tempestfx.particle.FxParticleMaterial.values()) result.put(material.name(), 0.0);
+        for (var particle : particles.active()) result.merge(particle.material.name(), 1.0, Double::sum);
+        int vanilla = 0;
+        if (currentLevel != null) for (var entity : currentLevel.entitiesForRendering()) if (entity instanceof LightningBolt) vanilla++;
+        result.put("vanilla", (double) vanilla);
+        result.put("skyFlash", currentLevel == null ? 0.0 : (double) currentLevel.getSkyFlashTime());
+        return result;
+    }
+    public void captureFinalFrame() { developmentCapture.finalFrame(Minecraft.getInstance(), this); }
     private final FrameMetrics frameMetrics = new FrameMetrics();
     public String diagnostics() {
         return frameMetrics.report()+" bolts="+effects.activeLightningCount()+" particles="+particles.activeCount()
@@ -247,6 +274,10 @@ public final class TempestFxClient {
             onLevelChanged(minecraft.level);
             return;
         }
+        // Loader client-tick callbacks still fire while an integrated world is paused.
+        // Advancing only the FX clock would consume bolts and thunder behind the pause menu.
+        if (minecraft.isPaused()) return;
+        simulationTicks++;
         events.drain();
         if (currentLevel != null) stormInbox.tick(currentLevel.getGameTime(), this::startNetworkFlash);
         for (int i = delayedVanilla.size() - 1; i >= 0; i--) {
@@ -426,6 +457,14 @@ public final class TempestFxClient {
      */
     public boolean deferBallLightning(BallLightningDraw sphere) {
         if (!config.general.enabled || currentLevel == null) return false;
+        // A shader shadow pass can visit the same entity before the normal pass. Keep the latest
+        // snapshot once, rather than compositing shell/core/glow twice into the visible scene.
+        if (sphere.entityId() != Integer.MIN_VALUE) {
+            for (int i=0;i<sphereDraws.size();i++) if (sphereDraws.get(i).entityId() == sphere.entityId()) {
+                sphereDraws.set(i, sphere);
+                return true;
+            }
+        }
         if (sphereDraws.size() >= MAX_DEFERRED_SPHERES) return false;
         sphereDraws.add(sphere);
         return true;
@@ -445,7 +484,7 @@ public final class TempestFxClient {
             Vec3d center = new Vec3d(ball.getX(), ball.getY(), ball.getZ());
             float radius = ball.nominalRadius();
             long tick = ball.tickCount;
-            particles.emit(4, material -> config.impact.sparks || material == FxParticleMaterial.EMBER,
+            particles.emit(4, config::allowsParticle,
                 sink -> BallLightningEmitter.spawn(sink, center, radius, output, ball.visualSeed(), tick));
             if (ball.tickCount % 11 == 0 && config.audio.thunderVolume > 0) {
                 double distance = platform.cameraPosition().distanceTo(center);
@@ -518,8 +557,18 @@ public final class TempestFxClient {
      * A distant channel scheduled by the roll.
      */
     private void onRollBolt(DistantBoltCue cue) {
-        if (config.realistic()) return;
-        if (distantBolts.onCue(cue, config) != null && cue.intensity() > 0.8f) {
+        // Automatic cinematic rolls are already gated at creation. Explicit commands/API rolls
+        // must keep their visual cues in either presentation profile.
+        if (currentLevel == null) return;
+        BlockPos column = BlockPos.containing(cue.ground().x(), cue.ground().y(), cue.ground().z());
+        // A decorative roll used camera-relative Y, leaving hard-cut channels hanging in midair.
+        // Resolve loaded terrain only; unseen columns use a below-horizon sea-level fallback.
+        double groundY = currentLevel.hasChunkAt(column)
+            ? currentLevel.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING, column).getY()
+            : Math.min(cue.ground().y(), currentLevel.getSeaLevel());
+        DistantBoltCue grounded = new DistantBoltCue(cue.delayTicks(), cue.top(),
+            new Vec3d(cue.ground().x(), Math.min(groundY, cue.top().y()-1), cue.ground().z()), cue.intensity(), cue.seed());
+        if (distantBolts.onCue(grounded, config) != null && cue.intensity() > 0.8f) {
             worldFlash.pulse(1, config);
         }
     }
@@ -543,7 +592,7 @@ public final class TempestFxClient {
         AshImprint imprint = imprints.onStrike(event, config);
         if (imprint == null) return;
         int budget = Math.max(16, config.particleBudget(platform.cameraPosition().distanceTo(event.position())) / 2);
-        particles.emit(budget, material -> config.impact.ash || material == FxParticleMaterial.SMOKE,
+        particles.emit(budget, config::allowsParticle,
             sink -> AshImprintEmitter.spawn(sink, imprint.position(), imprint.radius(),
                 Math.max(1.2f, event.target().height()), imprint.seed(), budget));
     }
@@ -570,6 +619,7 @@ public final class TempestFxClient {
         long renderStarted = System.nanoTime();
         if (!config.general.enabled || currentLevel == null) return;
         WorldFxRenderer.Scene scene = scene();
+        lastSphereDrawCount = scene.spheres().size();
         prepareEffectFrames(scene, partialTick);
         if (scene.isEmpty()) return;
 
@@ -623,6 +673,7 @@ public final class TempestFxClient {
     public void renderPostLevel() {
         if (!config.general.enabled) return;
         try {
+            lastDistortionActive = distortion.field().active();
             compositor.composite(distortion.field());
         } finally {
             distortion.clear();
@@ -759,7 +810,9 @@ public final class TempestFxClient {
      * Starts a rolling thunder event on its own, with no lightning in front of it.
      */
     public void triggerThunderRoll(ThunderRoll roll) {
-        if (currentLevel == null) return;
+        Minecraft minecraft = Minecraft.getInstance();
+        if (!minecraft.isSameThread()) { minecraft.execute(() -> triggerThunderRoll(roll)); return; }
+        if (currentLevel == null || !config.general.enabled) return;
         thunderRolls.trigger(platform.cameraPosition(), roll.position(), roll.seed(), 1f,
             roll.durationTicks(), roll.flashesPerSecond(), viewDistance());
     }
@@ -823,10 +876,12 @@ public final class TempestFxClient {
      * @param flashes distant channels <em>per second</em>, or {@code 0} to roll one
      */
     public void debugThunderRoll(double seconds, int flashes) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (currentLevel == null || minecraft.player == null || !config.general.enabled) return;
         Vec3d camera = platform.cameraPosition();
         long time = currentLevel != null ? currentLevel.getGameTime() : 0;
-        double bearing = StrikeSeed.unit(time, 0x1) * Math.PI * 2;
-        Vec3d origin = camera.add(Math.cos(bearing) * 40, 0, Math.sin(bearing) * 40);
+        double yaw = Math.toRadians(minecraft.player.getYRot());
+        Vec3d origin = camera.add(-Math.sin(yaw) * 40, 0, Math.cos(yaw) * 40);
         var effect = thunderRolls.trigger(camera, origin,
             StrikeSeed.of(origin.x(), origin.y(), origin.z(), time), 1f,
             (int) Math.round(seconds * 20), flashes, viewDistance());
@@ -835,6 +890,8 @@ public final class TempestFxClient {
             effect.boltsWereTruncated() ? ", capped from " + Math.round(effect.flashRate()
                 * effect.durationTicks() / 20.0) : "",
             effect.totalPulses(), effect.durationTicks());
+        if (!config.effectiveDistantBolts()) minecraft.player.displayClientMessage(
+            net.minecraft.network.chat.Component.translatable("commands.tempestfx.roll_visuals_disabled"), false);
     }
 
     /** Asks the server for a ball lightning entity in front of the player. */

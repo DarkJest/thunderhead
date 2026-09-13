@@ -184,6 +184,15 @@ public final class TempestConfig {
     }
 
     // Accessibility is an effective override, never a destructive edit of saved preferences.
+    public boolean allowsParticle(dev.tempestfx.particle.FxParticleMaterial material) {
+        return switch (material) {
+            case SPARK, MICRO_ARC -> impact.sparks;
+            case SMOKE, STEAM -> impact.smoke;
+            case DUST, DEBRIS -> impact.debris;
+            case ASH, EMBER -> impact.ash;
+            case WATER -> true;
+        };
+    }
     public void applyQualityPreset(QualityPreset preset) {
         performance.qualityPreset = preset;
         lightning.geometryQuality = switch(preset) { case LOW -> 5; case MEDIUM -> 6; case HIGH -> 7; case ULTRA -> 8; };

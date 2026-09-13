@@ -2,6 +2,10 @@
 
 Evidence is from local development runs on Windows 11, Java 21.0.12 and Radeon RX 570 (OpenGL 4.6). Exact releases of render loaders/packs matter. No row means universal compatibility with future versions.
 
+2.0.1 adds a [26-scenario mechanism audit](../docs/MECHANISM_AUDIT.md): ARTShade, Complementary
+and pack-disabled NeoForge runs each passed 26/26, with final-frame captures. Both artifacts build;
+191 shared tests pass. The broader 2.0 evidence below remains historical unless explicitly updated.
+
 | Configuration | Evidence | Scope / limitations |
 | --- | --- | --- |
 | Fabric 0.16.14 / API 0.116.15, Minecraft 1.21.1 | Build and integrated-server runtime passed | Server packets, ground/cloud events and client render loaded; no Iris in this run |

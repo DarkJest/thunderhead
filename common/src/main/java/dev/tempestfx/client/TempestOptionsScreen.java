@@ -3,6 +3,7 @@ package dev.tempestfx.client;
 import com.mojang.serialization.Codec;
 import dev.tempestfx.config.QualityPreset;
 import dev.tempestfx.config.RealismProfile;
+import dev.tempestfx.config.FeatureAvailability;
 import dev.tempestfx.config.TempestConfig;
 import java.util.Arrays;
 import java.util.List;
@@ -26,6 +27,7 @@ import net.minecraft.network.chat.Component;
 public final class TempestOptionsScreen extends OptionsSubScreen {
     private final TempestConfig config;
     private final Runnable onSave;
+    private final java.util.Map<OptionInstance<?>, String> tracked = new java.util.LinkedHashMap<>();
 
     public TempestOptionsScreen(Screen lastScreen, TempestConfig config, Runnable onSave) {
         super(lastScreen, Minecraft.getInstance().options, Component.translatable("screen.tempestfx.title"));
@@ -35,8 +37,9 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
 
     @Override
     protected void addOptions() {
+        tracked.clear();
         list.addBig(cycle("realism", RealismProfile.class, config.general.profile,
-            value -> config.general.profile = value));
+            value -> { if (config.general.profile != value) { config.general.profile = value; rebuildWidgets(); } }));
         list.addBig(cycle("preset", QualityPreset.class, config.performance.qualityPreset,
             value -> { if (config.performance.qualityPreset != value) { config.applyQualityPreset(value); rebuildWidgets(); } }));
 
@@ -59,6 +62,7 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
 
         list.addSmall(
             toggle("shockwave", config.impact.shockwave, value -> config.impact.shockwave = value),
+            toggle("surface_ripple", config.impact.surfaceRipple, value -> config.impact.surfaceRipple = value),
             toggle("sparks", config.impact.sparks, value -> config.impact.sparks = value),
             toggle("smoke", config.impact.smoke, value -> config.impact.smoke = value),
             toggle("debris", config.impact.debris, value -> config.impact.debris = value),
@@ -102,6 +106,25 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
             count("max_effects", 1, 256, config.performance.maxConcurrentEffects,
                 value -> config.performance.maxConcurrentEffects = value),
             toggle("lod", config.performance.lod, value -> config.performance.lod = value));
+        refreshAvailability();
+    }
+
+    private <T> OptionInstance<T> track(String key, OptionInstance<T> option) { tracked.put(option, key); return option; }
+    private void refreshAvailability() {
+        for (var entry : tracked.entrySet()) {
+            String reason = FeatureAvailability.reason(entry.getValue(), config);
+            var widget = list.findOption(entry.getKey());
+            if (widget != null) {
+                widget.active = reason == null;
+                if (reason != null) {
+                    widget.setMessage(Component.translatable("option.tempestfx.unavailable", Component.translatable(caption(entry.getValue()))));
+                    widget.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable(reason)));
+                }
+            }
+        }
+    }
+    int unavailableCount() {
+        return (int) tracked.entrySet().stream().filter(e -> FeatureAvailability.reason(e.getValue(), config) != null).count();
     }
 
     /**
@@ -115,28 +138,34 @@ public final class TempestOptionsScreen extends OptionsSubScreen {
     }
 
     private OptionInstance<Boolean> toggle(String key, boolean initial, Consumer<Boolean> setter) {
-        return OptionInstance.createBoolean(caption(key), tooltip(key), initial, setter::accept);
+        return track(key, OptionInstance.createBoolean(caption(key), tooltip(key), initial, value -> {
+            setter.accept(value);
+            if (value != initial && list != null) {
+                double scroll = list.getScrollAmount();
+                rebuildWidgets();
+                list.setScrollAmount(scroll);
+            }
+        }));
     }
 
     /** A fraction edited as a percentage, because {@code 140%} needs no explanation and {@code 1.4} does. */
     private OptionInstance<Integer> percent(String key, int min, int max, float initial, Consumer<Float> setter) {
-        return new OptionInstance<>(caption(key), tooltip(key),
+        return track(key, new OptionInstance<>(caption(key), tooltip(key),
             (label, value) -> Component.translatable("screen.tempestfx.percent", label, value),
             new OptionInstance.IntRange(min, max), Math.round(initial * 100),
-            value -> setter.accept(value / 100f));
+            value -> setter.accept(value / 100f)));
     }
 
     private OptionInstance<Integer> count(String key, int min, int max, int initial, Consumer<Integer> setter) {
-        return new OptionInstance<>(caption(key), tooltip(key),
+        return track(key, new OptionInstance<>(caption(key), tooltip(key),
             (label, value) -> Component.translatable("options.generic_value", label, value),
-            new OptionInstance.IntRange(min, max), initial, setter::accept);
+            new OptionInstance.IntRange(min, max), initial, setter::accept));
     }
 
     private <T extends Enum<T>> OptionInstance<T> cycle(String key, Class<T> type, T initial, Consumer<T> setter) {
         List<T> values = Arrays.asList(type.getEnumConstants());
         return new OptionInstance<>(caption(key), tooltip(key),
-            (label, value) -> Component.translatable("options.generic_value", label,
-                Component.translatable(caption(key) + "." + value.name().toLowerCase(java.util.Locale.ROOT))),
+            (label, value) -> Component.translatable(caption(key) + "." + value.name().toLowerCase(java.util.Locale.ROOT)),
             new OptionInstance.Enum<>(values, Codec.INT.xmap(values::get, values::indexOf)),
             initial, setter::accept);
     }

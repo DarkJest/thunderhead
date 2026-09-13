@@ -69,8 +69,8 @@ public final class AirDistortionSystem {
         Matrix4f projection = RenderSystem.getProjectionMatrix();
         Vec3d position = best.event().position();
 
-        scratch.set((float) position.x(), (float) best.surfaceY(), (float) position.z(), 1f);
-        pose.transform(scratch);
+        ScreenProjection.toView(RenderSystem.getModelViewMatrix(), pose, scratch,
+            (float) position.x(), (float) best.surfaceY(), (float) position.z());
         float viewX = scratch.x(), viewY = scratch.y(), viewZ = scratch.z(), viewW = scratch.w();
 
         float worldRadius = (float) best.radius(partialTick) * config.impact.shockwaveStrength;

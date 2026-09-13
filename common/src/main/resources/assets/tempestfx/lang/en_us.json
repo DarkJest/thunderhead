@@ -1,4 +1,12 @@
 {
+  "option.tempestfx.surface_ripple": "Surface ripple",
+  "option.tempestfx.unavailable": "%s: unavailable",
+  "option.tempestfx.requires_cinematic": "Available in Cinematic presentation. Your saved value is preserved.",
+  "option.tempestfx.requires_realistic": "Available in Realistic presentation. Your saved value is preserved.",
+  "option.tempestfx.reduced_override": "Suppressed by Reduced flashing. Your saved value is preserved.",
+  "option.tempestfx.requires_shockwave": "Requires Ground shockwave.",
+  "option.tempestfx.requires_lighting": "Requires Dynamic lighting.",
+  "commands.tempestfx.roll_visuals_disabled": "Roll audio started; distant bolts are disabled by settings or Reduced flashing.",
   "option.tempestfx.radiance": "Realistic channel exposure",
   "option.tempestfx.channel_thunder": "Thunder along the channel",
   "option.tempestfx.shelter_attenuation": "Muffle thunder behind obstacles",

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.0.1
+
+- Restore explicit roll visuals in Realistic; aim command previews ahead of the player and anchor
+  channels to loaded terrain. Apply distant-channel intensity once instead of twice.
+- Correct air-distortion projection to include the camera model-view rotation.
+- Deduplicate ball-lightning snapshots across shader entity passes.
+- Honor smoke/ash/spark switches in imprint and ball-lightning emitters.
+- Pause client FX simulation with an integrated world, preserving pending effects and audio timing.
+- Explain unavailable settings, expose the surface-ripple switch and remove duplicated cycle labels.
+- Add an opt-in development audit with 26 isolated scenarios and final-frame captures.
+
 ## 2.0.0
 
 - Complete the shared flash lifecycle with four discharge categories, canonical realistic geometry,

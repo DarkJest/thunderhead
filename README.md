@@ -44,6 +44,8 @@ Use `/tempestfx settings`, ModMenu on Fabric, or NeoForge's config button.
 
 - **Realistic** is selected for new client configs: restrained impacts, a coherent flash and channel-based thunder.
 - **Cinematic** preserves enhanced impact rings, stronger decorative effects and audio-driven distant walls. Existing configs keep this presentation unless changed.
+- Explicit `/tempestfx roll` previews work in both profiles and appear ahead of the player. Distant bolts must be enabled; reduced flashing suppresses these visual cues.
+- Settings mark unavailable effects and explain their profile or dependency requirements in tooltips. See the [mechanism audit](docs/MECHANISM_AUDIT.md).
 - Quality presets adjust geometry, particle/effect budgets and surface-lighting cost. They are independent of presentation and accessibility.
 - Disable shelter attenuation if an acoustic mod already handles obstruction.
 

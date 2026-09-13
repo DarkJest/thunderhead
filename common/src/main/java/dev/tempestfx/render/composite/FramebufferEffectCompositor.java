@@ -90,6 +90,7 @@ public final class FramebufferEffectCompositor implements EffectCompositor {
 
     @Override
     public void lighting(SceneLightField field) { lighting = field == null ? SceneLightField.NONE : field; }
+    @Override public boolean surfaceLightingActive() { return capturedLightDepth && lighting.active(); }
 
     @Override
     public boolean beginWorldPass() {

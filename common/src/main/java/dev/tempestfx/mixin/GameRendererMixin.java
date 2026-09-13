@@ -11,6 +11,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(GameRenderer.class)
 public abstract class GameRendererMixin {
+    /** Test capture includes HUD effects; a post-level screenshot cannot verify screen flashes. */
+    @Inject(method = "render", at = @At("TAIL"), require = 0)
+    private void tempestfx$captureFinalFrame(DeltaTracker tracker, boolean renderLevel, CallbackInfo info) {
+        TempestFxHooks.captureFinalFrame();
+    }
     /**
      * Adds the damped pressure impulse to the world pose. {@code bobHurt} already owns the
      * shake-the-view role and runs before the level render.

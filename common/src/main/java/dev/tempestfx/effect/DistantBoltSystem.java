@@ -56,7 +56,7 @@ public final class DistantBoltSystem {
             .start(cue.top())
             .end(cue.ground())
             .seed(cue.seed())
-            .intensity(cue.intensity())
+            .intensity(1f)
             .config(capped)
             .build();
 

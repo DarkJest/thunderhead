@@ -15,6 +15,18 @@ neoForge {
         mappingsVersion = '2024.11.17'
     }
     runs {
+        manualPreview {
+            client()
+            gameDirectory = project.file('run-audit')
+            programArguments.addAll('--quickPlaySingleplayer', 'Mechanism Audit')
+        }
+        mechanismAudit {
+            client()
+            gameDirectory = project.file('run-audit')
+            programArguments.addAll('--quickPlaySingleplayer', 'Mechanism Audit')
+            systemProperty 'tempestfx.capture', 'true'
+            systemProperty 'tempestfx.captureScene', 'mechanisms'
+        }
         server {
             server()
             gameDirectory = project.file('run-server')

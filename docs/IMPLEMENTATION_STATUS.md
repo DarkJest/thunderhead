@@ -111,3 +111,14 @@ recorded at the end of this journal. Earlier incomplete-stage entries are histor
 - Final core tests: 187 passed before final version metadata packaging. No release was pushed remotely.
 - Limits remain documented: approximate optics/acoustics/conduction; no universal shader-pack certification,
   no complete native cloud/reflection transport, no calibrated multi-GPU benchmark or WAN latency certification.
+
+## 2026-09-13 — 2.0.1 mechanism audit after user testing
+
+- Reproduced invisible explicit roll in Realistic and fixed its dispatch, direction, terrain endpoint
+  and intensity handling. Also fixed air-distortion camera projection, duplicate sphere submission,
+  particle toggle leaks and integrated-world pause behavior.
+- Added 26 isolated runtime cases with final-frame captures; ARTShade, Complementary and disabled-pack
+  runs each passed 26/26. See MECHANISM_AUDIT.md for run IDs, scope and limitations.
+- buildAll passed, 191 common tests with zero failures; Fabric and NeoForge 2.0.1 artifacts built.
+- Opened a separate manual preview in the disposable audit world with ARTShade/Cinematic; no automatic
+  capture sequence or auto-exit. Restored the screen-flash preference left disabled by earlier testing.

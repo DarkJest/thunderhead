@@ -5,6 +5,7 @@ run/
 **/run/
 **/run-server/
 **/run-vanilla/
+**/run-audit/
 **/run-qa-client*/
 .idea/
 *.iml

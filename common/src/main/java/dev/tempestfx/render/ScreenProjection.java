@@ -13,6 +13,12 @@ import org.joml.Vector4f;
 public final class ScreenProjection {
     private ScreenProjection() {
     }
+    /** The native FX vertex path applies ModelView after the per-world pose. Keep CPU projection identical. */
+    public static void toView(Matrix4f modelView, Matrix4f pose, Vector4f scratch, float x, float y, float z) {
+        scratch.set(x, y, z, 1);
+        pose.transform(scratch);
+        modelView.transform(scratch);
+    }
 
     /**
      * Projects a point already in view space.

@@ -103,4 +103,5 @@ public final class TempestFxHooks {
         TempestFxClient current = client;
         if (current != null) current.renderPostLevel();
     }
+    public static void captureFinalFrame() { TempestFxClient current = client; if (current != null) current.captureFinalFrame(); }
 }

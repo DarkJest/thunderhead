@@ -1,4 +1,12 @@
 {
+  "option.tempestfx.surface_ripple": "Рябь на поверхности",
+  "option.tempestfx.unavailable": "%s: недоступно",
+  "option.tempestfx.requires_cinematic": "Доступно в кинематографичном режиме. Сохранённая настройка не меняется.",
+  "option.tempestfx.requires_realistic": "Доступно в реалистичном режиме. Сохранённая настройка не меняется.",
+  "option.tempestfx.reduced_override": "Отключено режимом уменьшенных вспышек. Сохранённая настройка не меняется.",
+  "option.tempestfx.requires_shockwave": "Требуется включить ударную волну.",
+  "option.tempestfx.requires_lighting": "Требуется включить динамическое освещение.",
+  "commands.tempestfx.roll_visuals_disabled": "Звук раската включён, но дальние молнии отключены настройками или уменьшенными вспышками.",
   "option.tempestfx.radiance": "Яркость реалистичного канала",
   "option.tempestfx.channel_thunder": "Гром вдоль канала",
   "option.tempestfx.shelter_attenuation": "Приглушать гром за препятствиями",
